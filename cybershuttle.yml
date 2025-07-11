@@ -1,7 +1,7 @@
 project:
   name: "MCP Server"
   description: "Sample MCP Server"
-  homepage: https://github.com/Showmick119/mcp-server
+  homepage: https://github.com/cyber-shuttle/mcp-server
   authors:
     - sdas412@gatech.edu
     - asao6@gatech.edu
@@ -10,7 +10,6 @@ project:
   tags:
     - MCP_Server
     - FastMCP
-    - 'MCP Server'
 
 workspace:
   resources:
