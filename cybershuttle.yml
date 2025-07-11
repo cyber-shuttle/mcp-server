@@ -1,0 +1,30 @@
+project:
+  name: "MCP Server"
+  description: "Sample MCP Server"
+  homepage: https://github.com/Showmick119/mcp-server
+  authors:
+    - sdas412@gatech.edu
+    - asao6@gatech.edu
+    - paluru3@gatech.edu
+    - dtapia6@gatech.edu
+  tags:
+    - MCP_Server
+    - FastMCP
+    - 'MCP Server'
+
+workspace:
+  resources:
+    min_cpu: 4
+    min_mem: 4096
+    min_gpu: 1
+    gpu_mem: 1024
+  model_collection: []
+  data_collection: []
+
+additional_dependencies:
+  modules: []
+  conda:
+    - python=3.11
+    - pip
+  pip:
+    - postgkyl
