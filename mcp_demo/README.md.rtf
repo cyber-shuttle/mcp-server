@@ -1,0 +1,43 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 HelveticaNeue;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red207\green214\blue228;\red251\green2\blue7;
+\red155\green44\blue3;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c84706\c87059\c91373;\cssrgb\c100000\c14913\c0;
+\cssrgb\c67803\c24280\c0;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid1\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid1}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}}
+\margl1440\margr1440\vieww28600\viewh18000\viewkind0
+\deftab720
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa40\partightenfactor0
+
+\f0\fs26 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 README\
+\
+What the code does:\
+This code is a demonstration of a MCP server implementation that uses FastAPI to expose sample employee data through an API endpoint\
+The code uses a Python script that connects the OpenAI LLM and my MCP server.\
+The script uses the function calling API of OpenAI to call the function for employee lookup\
+\
+Why this project is useful:\cf3 \
+\
+\cf2 This demo includes a simpler version of many of the functionalities needed in the MCP server for Cybershuttle:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa40\partightenfactor0
+\ls1\ilvl0\cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 API Integration (external services can call MCP server)\
+\pard\tx220\tx720\tx1440\pardeftab720\li720\fi-720\sa40\partightenfactor0
+\ls1\ilvl0\cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}LLM being able to discover and use tools (chatbot functionality)\
+{\listtext	\uc0\u8226 	}define and expose tools\
+\pard\tx720\tx1440\pardeftab720\sa40\partightenfactor0
+\cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 To build on that last point, this project is a good building point for the larger project because essentially, the /tools endpoint can become a catalog for the Cybershuttle capabilities.\
+Basically, the tools will need to be expanded to the actual Cybershuttle catalog which includes repositories, notebooks, datasets, and models. This requires backend connection to Cybershuttle.\
+\
+How to get started:\
+\
+There should be three files: mcp_server.py, openai_mcp_demo.py.\
+Start up the mcp server with the command: \cf4 uvicorn mcp_server:app --reload\cf5 \
+\cf2 Then, run the OpenAI integration script with the command: \cf4 python3 openai_mcp_demo.py\cf2 \
+When prompted enter a question like: \cf4 What is the name of employee 1? \cf2 (Or you can enter any other prompt like \cf4 \'93what is Model context protocol?\'94\cf2  which OpenAI will answer directly without the need to ask the MCP Server) \cf4 \
+\
+\
+}
