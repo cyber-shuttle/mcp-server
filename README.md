@@ -1,8 +1,8 @@
 # Cybershuttle MCP Server
 
-A Model Context Protocol (MCP) server for Apache Cybershuttle Research Platform integration. This server enables AI agents to interact with the Cybershuttle research catalog, allowing natural language queries and operations on datasets, notebooks, models, repositories, projects, and sessions.
+A Model Context Protocol (MCP) server for Apache Cybershuttle. This server enables AI agents to interact with the Cybershuttle research catalog, allowing natural language queries and operations on datasets, notebooks, models, repositories, projects, and sessions.
 
-## 🚀 Features
+## Features
 
 - **Complete Cybershuttle API Integration**: Wraps all major Cybershuttle Research Service endpoints
 - **MCP Protocol Support**: Fully compatible with Model Context Protocol for AI agent integration
@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server for Apache Cybershuttle Research Platform 
 - **Session Management**: Launch and manage interactive research sessions
 - **Project Organization**: Create and manage research projects with multiple resources
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -27,13 +27,13 @@ A Model Context Protocol (MCP) server for Apache Cybershuttle Research Platform 
 - **MCP Server**: FastAPI-based server that wraps Cybershuttle APIs
 - **Cybershuttle API**: Apache Airavata Research Service REST endpoints
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Python 3.8+
 - OpenAI API key (for the demo)
 - Access to Cybershuttle platform (dev instance at https://api.dev.cybershuttle.org:18899)
 
-## 🛠️ Installation
+## Installation
 
 1. **Clone the repository**:
 ```bash
@@ -65,7 +65,7 @@ export CYBERSHUTTLE_CLIENT_ID="your-client-id"
 export CYBERSHUTTLE_CLIENT_SECRET="your-client-secret"
 ```
 
-## 🔐 Authentication
+## Authentication
 
 The server supports two authentication modes:
 
@@ -86,7 +86,7 @@ auth = CybershuttleAuth()
 token = auth.get_access_token()  # This will prompt for device authentication
 ```
 
-## 🚀 Usage
+## Usage
 
 ### 1. Start the MCP Server
 
@@ -116,7 +116,7 @@ python cybershuttle_openai_demo.py
 
 This will start an interactive chat session where you can ask questions about the Cybershuttle catalog.
 
-## 💬 Example Interactions
+## Example Interactions
 
 Here are some example prompts you can try with the AI agent:
 
@@ -140,7 +140,7 @@ Here are some example prompts you can try with the AI agent:
 - "Show me all active sessions"
 - "Start a new session for my machine learning project"
 
-## 🔧 API Endpoints
+## API Endpoints
 
 The MCP server provides the following main endpoints:
 
@@ -171,7 +171,7 @@ The MCP server provides the following main endpoints:
 - `GET /tools` - List all available tools for agents
 - `GET /health` - Health check
 
-## 📊 Monitoring and Logging
+## Monitoring and Logging
 
 The server includes comprehensive logging and monitoring:
 
@@ -183,7 +183,7 @@ curl http://localhost:8000/health
 tail -f logs/cybershuttle_mcp.log
 ```
 
-## 🧪 Testing
+## Testing
 
 Run the test suite:
 
@@ -196,7 +196,7 @@ Test authentication:
 python cybershuttle_auth.py --test
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -222,7 +222,7 @@ Run the server in debug mode:
 python cybershuttle_mcp_server.py --debug
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 cybershuttle-mcp-server/
@@ -230,16 +230,10 @@ cybershuttle-mcp-server/
 ├── cybershuttle_openai_demo.py     # OpenAI integration demo
 ├── cybershuttle_auth.py             # Authentication helper
 ├── requirements.txt                 # Dependencies
-├── README.md                        # This file
-├── mcp_demo/                        # Original demo files
-│   ├── mcp_server.py
-│   ├── openai_mcp_demo.py
-│   └── README.md.rtf
-└── tests/                          # Test files
-    └── test_mcp_server.py
+└── README.md                        # This file
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -247,29 +241,12 @@ cybershuttle-mcp-server/
 4. Add tests
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the Apache 2.0 License.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Apache Airavata team for the Cybershuttle platform
 - OpenAI for the function calling capabilities
 - Model Context Protocol community
-
-## 📞 Support
-
-For questions or issues:
-- Check the troubleshooting section
-- Review the API documentation at `http://localhost:8000/docs`
-- Open an issue on the repository
-
-## 🔮 Future Enhancements
-
-- [ ] WebSocket support for real-time updates
-- [ ] Batch operations for multiple resources
-- [ ] Advanced search and filtering
-- [ ] Workflow automation
-- [ ] Multi-tenant support
-- [ ] Enhanced error handling and retry logic
-- [ ] Metrics and analytics integration
