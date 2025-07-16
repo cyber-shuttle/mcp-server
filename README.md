@@ -230,14 +230,18 @@ python cybershuttle_mcp_server.py --debug
 ## Project Structure
 
 ```
-cybershuttle-mcp-server/
-├── cybershuttle_mcp_server.py      # Main MCP server
-├── cybershuttle_openai_demo.py     # OpenAI integration demo
-├── cybershuttle_auth.py             # Authentication helper
-├── test_cybershuttle_mcp.py        # Test suite
-├── requirements.txt                 # Dependencies
-├── cybershuttle.yml                 # MCP server configuration
-└── README.md                        # This file
+mcp-server/
+├── src/
+│   ├── cybershuttle_mcp_server.py
+│   ├── cybershuttle_auth.py
+│   └── __init__.py
+├── demos/
+│   └── cybershuttle_openai_demo.py
+├── tests/
+│   └── test_cybershuttle_mcp.py
+├── requirements.txt
+├── cybershuttle.yml
+└── README.md
 ```
 
 ## Contributing
