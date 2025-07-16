@@ -31,7 +31,7 @@ A Model Context Protocol (MCP) server for Apache Cybershuttle. This server enabl
 
 - Python 3.8+
 - OpenAI API key (for the demo)
-- Access to Cybershuttle platform (dev instance at https://api.dev.cybershuttle.org:18899)
+- Access to Cybershuttle platform (contact dev@airavata.apache.org for access)
 
 ## Installation
 
@@ -57,34 +57,35 @@ pip install -r requirements.txt
 # Required for OpenAI demo
 export OPENAI_API_KEY="your-openai-api-key"
 
-# For development/testing (if you have a direct auth token)
-export CYBERSHUTTLE_AUTH_TOKEN="your-cybershuttle-token"
-
-# Optional: OAuth2 credentials (for proper device flow)
-export CYBERSHUTTLE_CLIENT_ID="your-client-id"
-export CYBERSHUTTLE_CLIENT_SECRET="your-client-secret"
+# Cybershuttle access token (obtained via device flow)
+export CS_ACCESS_TOKEN="your-cybershuttle-token"
 ```
 
 ## Authentication
 
-The server supports two authentication modes:
+The server uses OAuth2 device flow authentication with the real Cybershuttle platform:
 
-### 1. Development Mode (Simple Token)
-For development and testing, you can use a direct authentication token:
+### Get Authentication Token
 
+1. **Run the authentication script**:
 ```bash
-export CYBERSHUTTLE_AUTH_TOKEN="your-token"
+python cybershuttle_auth.py
 ```
 
-### 2. OAuth2 Device Flow (Production)
-For production use, implement the full OAuth2 device flow:
+2. **Follow the prompts**:
+   - Visit the provided URL
+   - Enter the device code
+   - Login with your institutional credentials
 
-```python
-from cybershuttle_auth import CybershuttleAuth
-
-auth = CybershuttleAuth()
-token = auth.get_access_token()  # This will prompt for device authentication
+3. **Export the token**:
+```bash
+export CS_ACCESS_TOKEN="your-token-from-script"
 ```
+
+The authentication uses:
+- **Auth Server**: `https://auth.cybershuttle.org`
+- **API Server**: `https://api.dev.cybershuttle.org:18899`
+- **Client ID**: `cybershuttle-agent`
 
 ## Usage
 
@@ -188,12 +189,16 @@ tail -f logs/cybershuttle_mcp.log
 Run the test suite:
 
 ```bash
-pytest tests/
+# Quick test (MCP server only)
+python test_cybershuttle_mcp.py --quick
+
+# Full test suite
+python test_cybershuttle_mcp.py
 ```
 
 Test authentication:
 ```bash
-python cybershuttle_auth.py --test
+python cybershuttle_auth.py
 ```
 
 ## Troubleshooting
@@ -201,8 +206,8 @@ python cybershuttle_auth.py --test
 ### Common Issues
 
 1. **Authentication Errors**:
-   - Ensure `CYBERSHUTTLE_AUTH_TOKEN` is set correctly
-   - Check token expiration
+   - Ensure `CS_ACCESS_TOKEN` is set correctly
+   - Check token expiration (tokens expire after ~2 hours)
    - Verify API endpoint accessibility
 
 2. **OpenAI Integration Issues**:
@@ -229,7 +234,9 @@ cybershuttle-mcp-server/
 ├── cybershuttle_mcp_server.py      # Main MCP server
 ├── cybershuttle_openai_demo.py     # OpenAI integration demo
 ├── cybershuttle_auth.py             # Authentication helper
+├── test_cybershuttle_mcp.py        # Test suite
 ├── requirements.txt                 # Dependencies
+├── cybershuttle.yml                 # MCP server configuration
 └── README.md                        # This file
 ```
 
