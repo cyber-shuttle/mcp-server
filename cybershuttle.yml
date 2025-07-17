@@ -1,8 +1,6 @@
 project:
   name: "Cybershuttle MCP Server"
   description: "MCP Server for navigating the Cybershuttle Research Catalog through an MCP Agent"
-  name: "MCP Server"
-  description: "Sample MCP Server"
   homepage: https://github.com/cyber-shuttle/mcp-server
   authors:
     - sdas412@gatech.edu
@@ -11,10 +9,9 @@ project:
     - dtapia6@gatech.edu
   tags:
     - MCP_Server
+    - Catalog_Search
     - FastAPI
     - OpenAI
-    - Catalog_Search
-    - FastMCP
 
 workspace:
   resources:
