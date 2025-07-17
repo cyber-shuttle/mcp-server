@@ -1,4 +1,7 @@
 project:
+  name: "Cybershuttle MCP Server"
+  description: "MCP Server for navigating the Cybershuttle Research Catalog through an MCP Agent"
+=======
   name: "MCP Server"
   description: "Sample MCP Server"
   homepage: https://github.com/cyber-shuttle/mcp-server
@@ -9,6 +12,10 @@ project:
     - dtapia6@gatech.edu
   tags:
     - MCP_Server
+    - FastAPI
+    - OpenAI
+    - Catalog_Search
+=======
     - FastMCP
 
 workspace:
@@ -24,6 +31,17 @@ additional_dependencies:
   modules: []
   conda:
     - python=3.11
-    - pip
+    - fastapi=0.104.1
+    - uvicorn[standard]=0.24.0
+    - pydantic=2.5.0
+    - requests=2.31.0
+    - openai=1.6.1
+    - python-multipart=0.0.6
+    - python-jose[cryptography]=3.3.0
+    - python-dateutil=2.8.2
+    - pytest=7.4.3
+    - pytest-asyncio=0.21.1
+    - httpx=0.25.2 
+  
   pip:
     - postgkyl
