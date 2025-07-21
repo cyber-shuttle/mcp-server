@@ -91,12 +91,12 @@ def test_authentication() -> bool:
     """Test authentication setup."""
     print_status("Testing authentication...", "info")
 
-    auth_token = os.getenv("CYBERSHUTTLE_AUTH_TOKEN")
+    auth_token = os.getenv("CS_ACCESS_TOKEN")
     client_id = os.getenv("CYBERSHUTTLE_CLIENT_ID")
     client_secret = os.getenv("CYBERSHUTTLE_CLIENT_SECRET")
     
     if auth_token:
-        print_status("CYBERSHUTTLE_AUTH_TOKEN found", "success")
+        print_status("CS_AUTH_TOKEN found", "success")
         return True
     elif client_id and client_secret:
         print_status("OAuth2 credentials found", "success")

@@ -26,7 +26,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-CYBERSHUTTLE_API_BASE = "https://api.dev.cybershuttle.org:18899"
+CYBERSHUTTLE_API_BASE = "http://api.dev.cybershuttle.org:18899"
 CYBERSHUTTLE_AUTH_URL = f"{CYBERSHUTTLE_API_BASE}/auth"
 
 class ResourceResponse(BaseModel):
@@ -142,12 +142,21 @@ async def list_resources(
         "limit": limit,
         "offset": offset
     }
-    if resource_type:
-        params["type"] = resource_type
+    
     if tags:
         params["tags"] = tags
     if name:
         params["name"] = name
+    else :
+        #required parameter "type" for resources other than tags
+        if resource_type:
+            # type expected in upper case by CS API.
+            params["type"] = resource_type.upper()
+        else :
+            params["type"] = ""
+
+    #required parameter nameSearch
+    params["nameSearch"] = ""
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
     
@@ -159,27 +168,13 @@ async def list_resources(
             name=item.get("name", ""),
             type=item.get("type", ""),
             description=item.get("description", ""),
-            tags=item.get("tags", []),
+            tags=[tag.get("value", "") for tag in item.get("tags", [])],
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
     
     return resources
 
-@app.get("/resources/{resource_id}", response_model=ResourceResponse)
-async def get_resource(resource_id: str):
-    """Get a specific resource by ID."""
-    result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
-    
-    return ResourceResponse(
-        id=str(result.get("id", "")),
-        name=result.get("name", ""),
-        type=result.get("type", ""),
-        description=result.get("description", ""),
-        tags=result.get("tags", []),
-        created_at=result.get("createdAt"),
-        updated_at=result.get("updatedAt")
-    )
 
 @app.post("/resources/dataset")
 async def create_dataset(data: Dict[str, Any]):
@@ -211,8 +206,8 @@ async def create_model(data: Dict[str, Any]):
 
 @app.get("/resources/search")
 async def search_resources(resource_type: str, name: str):
-    """Search resources by type and name."""
-    params = {"type": resource_type, "name": name}
+    """Search resources by type and name. Enum expects a upper case string"""
+    params = {"type": resource_type.upper(), "name": name}
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/search", params=params)
     return result
 
@@ -446,7 +441,7 @@ async def list_tools():
         ToolInfo(
             name="get_all_tags",
             description="Get all available tags from the catalog for filtering and organization",
-            endpoint="/resources/tags",
+            endpoint="/resources/tags/all",
             method="GET",
             parameters={},
             response_schema={"type": "array", "items": {"type": "string"}}
@@ -454,6 +449,25 @@ async def list_tools():
     ]
     
     return tools
+
+# Always keep this method after all other /resources methods in this file since
+# it can match any other sub-path like /resources/tags
+@app.get("/resources/{resource_id}", response_model=ResourceResponse)
+async def get_resource(resource_id: str):
+    """Get a specific resource by ID."""
+    result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
+    
+    
+    return ResourceResponse(
+        id=str(result.get("id", "")),
+        name=result.get("name", ""),
+        type=result.get("type", ""),
+        description=result.get("description", ""),
+        tags=result.get("tags", []),
+        created_at=result.get("createdAt"),
+        updated_at=result.get("updatedAt")
+    )
+
 
 # === HEALTH CHECK ===
 
