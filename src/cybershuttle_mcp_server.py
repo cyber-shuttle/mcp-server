@@ -26,7 +26,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-CYBERSHUTTLE_API_BASE = "https://api.dev.cybershuttle.org:18899"
+CYBERSHUTTLE_API_BASE = "https://api.dev.cybershuttle.org:18889"
 CYBERSHUTTLE_AUTH_URL = f"{CYBERSHUTTLE_API_BASE}/auth"
 
 class ResourceResponse(BaseModel):
@@ -147,7 +147,7 @@ async def list_resources(
     if tags:
         params["tags"] = tags
     if name:
-        params["name"] = name
+        params["nameSearch"] = name
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
     
