@@ -37,8 +37,8 @@ A Model Context Protocol (MCP) server for Apache Cybershuttle. This server enabl
 
 1. **Clone the repository**:
 ```bash
-git clone <repository-url>
-cd cybershuttle-mcp-server
+git clone https://github.com/cyber-shuttle/mcp-server.git
+cd mcp-server
 ```
 
 2. **Create a virtual environment**:
