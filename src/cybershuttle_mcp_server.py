@@ -143,7 +143,7 @@ async def list_resources(
         "offset": offset
     }
     if resource_type:
-        params["type"] = resource_type
+        params["type"] = resource_type.upper()
     if tags:
         params["tags"] = tags
     if name:
