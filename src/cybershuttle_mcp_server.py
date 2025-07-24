@@ -2,7 +2,7 @@
 Cybershuttle MCP Server
 
 This module implements the MCP servers and uses the endpoints in airavata's
-research-service.
+research-service module.
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -446,7 +446,7 @@ async def list_tools():
         ToolInfo(
             name="get_all_tags",
             description="Get all available tags from the catalog for filtering and organization",
-            endpoint="/resources/tags",
+            endpoint="/resources/tags/all",
             method="GET",
             parameters={},
             response_schema={"type": "array", "items": {"type": "string"}}
