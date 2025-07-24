@@ -115,6 +115,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     kwargs['headers'] = headers
     
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
+    logger.info(f"DEBUG: Full URL being called: {CYBERSHUTTLE_API_BASE}{endpoint}")
     
     try:
         response = requests.request(method, url, **kwargs)
@@ -149,16 +150,18 @@ async def list_resources(
         params["tags"] = tags
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
-    
-    # Transform the response to match our model
+
     resources = []
+
     for item in result.get("content", []):
+        tag_values = [tag.get("value", "") if isinstance(tag, dict) else str(tag) for tag in item.get("tags", [])]
+        
         resources.append(ResourceResponse(
             id=str(item.get("id", "")),
             name=item.get("name", ""),
             type=item.get("type", ""),
             description=item.get("description", ""),
-            tags=item.get("tags", []),
+            tags=tag_values, 
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
@@ -462,8 +465,6 @@ async def health_check():
     try:
         token = await get_auth_token()
 
-        await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
-        
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
