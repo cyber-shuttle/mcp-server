@@ -140,14 +140,13 @@ async def list_resources(
     """List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog."""
     params = {
         "limit": limit,
-        "offset": offset
+        "offset": offset,
+        "nameSearch": name if name else ""  # Always include nameSearch, empty if no name
     }
     if resource_type:
         params["type"] = resource_type.upper()
     if tags:
         params["tags"] = tags
-    if name:
-        params["nameSearch"] = name
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
     
