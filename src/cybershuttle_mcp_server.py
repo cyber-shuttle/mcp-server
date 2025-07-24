@@ -115,6 +115,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     kwargs['headers'] = headers
     
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
+    logger.info(f"DEBUG: Full URL being called: {CYBERSHUTTLE_API_BASE}{endpoint}")
     
     try:
         response = requests.request(method, url, **kwargs)
@@ -221,6 +222,7 @@ async def search_resources(resource_type: str, name: str):
 async def get_all_tags():
     """Get all available tags from the catalog."""
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
+    print("DEBUG: get_all_tags called with endpoint: /api/v1/rf/resources/public/tags/all")
     return result
 
 # === PROJECT CONTROLLER ENDPOINTS ===
@@ -464,7 +466,8 @@ async def health_check():
     try:
         token = await get_auth_token()
 
-        await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
+        # This line has no purpose being here!
+        # await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
         
         return {
             "status": "healthy",
