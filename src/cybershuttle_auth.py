@@ -19,7 +19,7 @@ class CybershuttleAuth:
     """OAuth2 device flow authentication for Cybershuttle using real endpoints."""
     
     def __init__(self, 
-                 api_base: str = "https://api.dev.cybershuttle.org:18899",
+                 api_base: str = "https://api.dev.cybershuttle.org:18889",
                  auth_server_url: str = "https://auth.cybershuttle.org",
                  client_id: str = "cybershuttle-agent",
                  realm: str = "default"):

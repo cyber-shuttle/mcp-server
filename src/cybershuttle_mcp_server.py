@@ -2,7 +2,7 @@
 Cybershuttle MCP Server
 
 This module implements the MCP servers and uses the endpoints in airavata's
-research-service.
+research-service module.
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -26,7 +26,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-CYBERSHUTTLE_API_BASE = "http://api.dev.cybershuttle.org:18899"
+CYBERSHUTTLE_API_BASE = "https://api.dev.cybershuttle.org:18889"
 CYBERSHUTTLE_AUTH_URL = f"{CYBERSHUTTLE_API_BASE}/auth"
 
 class ResourceResponse(BaseModel):
@@ -115,6 +115,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     kwargs['headers'] = headers
     
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
+    logger.info(f"DEBUG: Full URL being called: {CYBERSHUTTLE_API_BASE}{endpoint}")
     
     try:
         response = requests.request(method, url, **kwargs)
@@ -140,41 +141,71 @@ async def list_resources(
     """List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog."""
     params = {
         "limit": limit,
-        "offset": offset
+        "offset": offset,
+#         "nameSearch": name if name else ""  # Always include nameSearch, empty if no name
     }
     
+    # Sutej Approach
     if tags:
         params["tags"] = tags
     if name:
         params["name"] = name
-    else :
+    else:
         #required parameter "type" for resources other than tags
         if resource_type:
             # type expected in upper case by CS API.
             params["type"] = resource_type.upper()
-        else :
+        else:
             params["type"] = ""
 
     #required parameter nameSearch
     params["nameSearch"] = ""
+
+    # Showmick Approach
+#     if resource_type:
+#         params["type"] = resource_type.upper()
+#     if tags:
+#         params["tags"] = tags
+#     if name:
+#         params["nameSearch"] = name
+#     else:
+#         params["nameSearch"] = ""
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
-    
-    # Transform the response to match our model
+
     resources = []
+
     for item in result.get("content", []):
+        tag_values = [tag.get("value", "") if isinstance(tag, dict) else str(tag) for tag in item.get("tags", [])]
+        
         resources.append(ResourceResponse(
             id=str(item.get("id", "")),
             name=item.get("name", ""),
             type=item.get("type", ""),
             description=item.get("description", ""),
-            tags=[tag.get("value", "") for tag in item.get("tags", [])],
+            tags=tag_values,
+#             tags=item.get("tags", [])
+#             tags=[tag.get("value", "") for tag in item.get("tags", [])],
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
     
     return resources
 
+@app.get("/resources/{resource_id}", response_model=ResourceResponse)
+async def get_resource(resource_id: str):
+    """Get a specific resource by ID."""
+    result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
+    
+    return ResourceResponse(
+        id=str(result.get("id", "")),
+        name=result.get("name", ""),
+        type=result.get("type", ""),
+        description=result.get("description", ""),
+        tags=result.get("tags", []),
+        created_at=result.get("createdAt"),
+        updated_at=result.get("updatedAt")
+    )
 
 @app.post("/resources/dataset")
 async def create_dataset(data: Dict[str, Any]):
@@ -450,25 +481,6 @@ async def list_tools():
     
     return tools
 
-# Always keep this method after all other /resources methods in this file since
-# it can match any other sub-path like /resources/tags
-@app.get("/resources/{resource_id}", response_model=ResourceResponse)
-async def get_resource(resource_id: str):
-    """Get a specific resource by ID."""
-    result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
-    
-    
-    return ResourceResponse(
-        id=str(result.get("id", "")),
-        name=result.get("name", ""),
-        type=result.get("type", ""),
-        description=result.get("description", ""),
-        tags=result.get("tags", []),
-        created_at=result.get("createdAt"),
-        updated_at=result.get("updatedAt")
-    )
-
-
 # === HEALTH CHECK ===
 
 @app.get("/health")
@@ -477,8 +489,6 @@ async def health_check():
     try:
         token = await get_auth_token()
 
-        await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
-        
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
