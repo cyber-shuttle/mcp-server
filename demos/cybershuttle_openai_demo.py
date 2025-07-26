@@ -336,7 +336,7 @@ def main():
         "Find notebooks related to machine learning",
         "Create a new project for my research",
         "List all active sessions",
-        "Search for repositories about deepseek",
+        "Search for repositories about deep learning",
         "What tags are available in the catalog?",
         "Start a session for project XYZ"
     ]
@@ -403,6 +403,8 @@ def main():
                     formatted_result = display_sessions(function_result)
                 elif func_call.name == "get_all_tags":
                     if isinstance(function_result, list):
+                        # Commenting out my implementation and using Sutej's
+                        # formatted_result = f"**Available Tags:** {', '.join(function_result)}"
                         formatted_result = f"**Available Tags:** {', '.join(tag.get('value', '') for tag in function_result)}"
                     else:
                         formatted_result = f"**Available Tags:** {function_result}"

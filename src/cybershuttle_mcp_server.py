@@ -184,8 +184,8 @@ async def list_resources(
             type=item.get("type", ""),
             description=item.get("description", ""),
             tags=tag_values,
-#             tags=item.get("tags", [])
-#             tags=[tag.get("value", "") for tag in item.get("tags", [])],
+#           tags=item.get("tags", [])
+#           tags=[tag.get("value", "") for tag in item.get("tags", [])],
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
