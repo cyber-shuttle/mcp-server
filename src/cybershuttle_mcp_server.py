@@ -142,12 +142,34 @@ async def list_resources(
     params = {
         "limit": limit,
         "offset": offset,
-        "nameSearch": name if name else ""  # Always include nameSearch, empty if no name
+#         "nameSearch": name if name else ""  # Always include nameSearch, empty if no name
     }
-    if resource_type:
-        params["type"] = resource_type.upper()
+    
+    # Sutej Approach
     if tags:
         params["tags"] = tags
+    if name:
+        params["name"] = name
+    else:
+        #required parameter "type" for resources other than tags
+        if resource_type:
+            # type expected in upper case by CS API.
+            params["type"] = resource_type.upper()
+        else:
+            params["type"] = ""
+
+    #required parameter nameSearch
+    params["nameSearch"] = ""
+
+    # Showmick Approach
+#     if resource_type:
+#         params["type"] = resource_type.upper()
+#     if tags:
+#         params["tags"] = tags
+#     if name:
+#         params["nameSearch"] = name
+#     else:
+#         params["nameSearch"] = ""
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
 
@@ -161,7 +183,9 @@ async def list_resources(
             name=item.get("name", ""),
             type=item.get("type", ""),
             description=item.get("description", ""),
-            tags=tag_values, 
+            tags=tag_values,
+#           tags=item.get("tags", [])
+#           tags=[tag.get("value", "") for tag in item.get("tags", [])],
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
@@ -213,8 +237,8 @@ async def create_model(data: Dict[str, Any]):
 
 @app.get("/resources/search")
 async def search_resources(resource_type: str, name: str):
-    """Search resources by type and name."""
-    params = {"type": resource_type, "name": name}
+    """Search resources by type and name. Enum expects a upper case string"""
+    params = {"type": resource_type.upper(), "name": name}
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/search", params=params)
     return result
 

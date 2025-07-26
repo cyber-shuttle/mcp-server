@@ -403,7 +403,9 @@ def main():
                     formatted_result = display_sessions(function_result)
                 elif func_call.name == "get_all_tags":
                     if isinstance(function_result, list):
-                        formatted_result = f"**Available Tags:** {', '.join(function_result)}"
+                        # Commenting out my implementation and using Sutej's
+                        # formatted_result = f"**Available Tags:** {', '.join(function_result)}"
+                        formatted_result = f"**Available Tags:** {', '.join(tag.get('value', '') for tag in function_result)}"
                     else:
                         formatted_result = f"**Available Tags:** {function_result}"
                 else:
