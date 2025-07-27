@@ -142,50 +142,38 @@ async def list_resources(
     params = {
         "limit": limit,
         "offset": offset,
-#         "nameSearch": name if name else ""  # Always include nameSearch, empty if no name
     }
     
-    # Sutej Approach
+    # FIX: Only send nameSearch parameter, not both name and nameSearch
+    if name:
+        params["nameSearch"] = name
+    else:
+        params["nameSearch"] = ""
+    
+    if resource_type:
+        params["type"] = resource_type.upper()
+    
     if tags:
         params["tags"] = tags
-    if name:
-        params["name"] = name
-    else:
-        #required parameter "type" for resources other than tags
-        if resource_type:
-            # type expected in upper case by CS API.
-            params["type"] = resource_type.upper()
-        else:
-            params["type"] = ""
-
-    #required parameter nameSearch
-    params["nameSearch"] = ""
-
-    # Showmick Approach
-#     if resource_type:
-#         params["type"] = resource_type.upper()
-#     if tags:
-#         params["tags"] = tags
-#     if name:
-#         params["nameSearch"] = name
-#     else:
-#         params["nameSearch"] = ""
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
 
     resources = []
-
     for item in result.get("content", []):
-        tag_values = [tag.get("value", "") if isinstance(tag, dict) else str(tag) for tag in item.get("tags", [])]
+        # FIX: Handle tags as objects with 'value' property
+        tag_values = []
+        for tag in item.get("tags", []):
+            if isinstance(tag, dict):
+                tag_values.append(tag.get("value", ""))
+            else:
+                tag_values.append(str(tag))
         
         resources.append(ResourceResponse(
             id=str(item.get("id", "")),
             name=item.get("name", ""),
             type=item.get("type", ""),
             description=item.get("description", ""),
-            tags=tag_values,
-#           tags=item.get("tags", [])
-#           tags=[tag.get("value", "") for tag in item.get("tags", [])],
+            tags=tag_values,  # Use processed tag values
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
@@ -197,12 +185,20 @@ async def get_resource(resource_id: str):
     """Get a specific resource by ID."""
     result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
     
+    # FIX: Handle tags as objects with 'value' property
+    tag_values = []
+    for tag in result.get("tags", []):
+        if isinstance(tag, dict):
+            tag_values.append(tag.get("value", ""))
+        else:
+            tag_values.append(str(tag))
+    
     return ResourceResponse(
         id=str(result.get("id", "")),
         name=result.get("name", ""),
         type=result.get("type", ""),
         description=result.get("description", ""),
-        tags=result.get("tags", []),
+        tags=tag_values,  # Use processed tag values
         created_at=result.get("createdAt"),
         updated_at=result.get("updatedAt")
     )
@@ -211,6 +207,12 @@ async def get_resource(resource_id: str):
 async def create_dataset(data: Dict[str, Any]):
     """Create a new dataset resource."""
     result = await make_authenticated_request("POST", "/api/v1/rf/resources/dataset", json=data)
+    return result
+
+@app.get("/resources/tags")
+async def get_all_tags():
+    """Get all available tags from the catalog."""
+    result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
     return result
 
 @app.post("/resources/notebook")
@@ -237,15 +239,9 @@ async def create_model(data: Dict[str, Any]):
 
 @app.get("/resources/search")
 async def search_resources(resource_type: str, name: str):
-    """Search resources by type and name. Enum expects a upper case string"""
+    """Search resources by type and name."""
     params = {"type": resource_type.upper(), "name": name}
-    result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/search", params=params)
-    return result
-
-@app.get("/resources/tags")
-async def get_all_tags():
-    """Get all available tags from the catalog."""
-    result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
+    result = await make_authenticated_request("GET", "/api/v1/rf/resources/search", params=params)
     return result
 
 # === PROJECT CONTROLLER ENDPOINTS ===
@@ -367,7 +363,7 @@ async def list_tools():
                 "limit": {"type": "integer", "description": "Number of results to return", "default": 10},
                 "offset": {"type": "integer", "description": "Offset for pagination", "default": 0}
             },
-            response_schema=ResourceResponse.schema()
+            response_schema=ResourceResponse.model_json_schema() # switched from .schema()
         ),
         ToolInfo(
             name="get_resource",
@@ -377,7 +373,7 @@ async def list_tools():
             parameters={
                 "resource_id": {"type": "string", "description": "ID of the resource to retrieve", "required": True}
             },
-            response_schema=ResourceResponse.schema()
+            response_schema=ResourceResponse.model_json_schema() # switched from .schema()
         ),
         ToolInfo(
             name="search_resources",
@@ -388,7 +384,7 @@ async def list_tools():
                 "resource_type": {"type": "string", "description": "Type of resource to search for", "required": True},
                 "name": {"type": "string", "description": "Name to search for", "required": True}
             },
-            response_schema={"type": "array", "items": ResourceResponse.schema()}
+            response_schema={"type": "array", "items": ResourceResponse.model_json_schema()} # switched from .schema()
         ),
         ToolInfo(
             name="create_dataset",
@@ -436,7 +432,7 @@ async def list_tools():
             endpoint="/projects",
             method="GET",
             parameters={},
-            response_schema={"type": "array", "items": ProjectResponse.schema()}
+            response_schema={"type": "array", "items": ProjectResponse.model_json_schema()} # switched from .schema()
         ),
         ToolInfo(
             name="create_project",
@@ -467,7 +463,7 @@ async def list_tools():
             parameters={
                 "status": {"type": "string", "description": "Filter by session status", "optional": True}
             },
-            response_schema={"type": "array", "items": SessionResponse.schema()}
+            response_schema={"type": "array", "items": SessionResponse.model_json_schema()} # switched from .schema()
         ),
         ToolInfo(
             name="get_all_tags",
