@@ -141,6 +141,12 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
 
 # === RESOURCE CONTROLLER ENDPOINTS ===
 
+@app.get("/resources/tags")
+async def get_all_tags():
+    """Get all available tags from the catalog."""
+    result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
+    return result
+
 @app.get("/resources", response_model=List[ResourceResponse])
 async def list_resources(
     resource_type: Optional[str] = None,
@@ -154,14 +160,9 @@ async def list_resources(
         "pageNumber": offset // limit,  # Convert offset to pageNumber
         "pageSize": limit,              # Use pageSize instead of limit
         "nameSearch": name if name else "",
-        "tag": tags if tags else ""
+        "tag": tags if tags else "",
+        "type": resource_type.upper() if resource_type else ""
     }
-    
-    if resource_type:
-        params["type"] = resource_type.upper()
-    
-    if tags:
-        params["tags"] = tags
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
 
@@ -212,14 +213,6 @@ async def get_resource(resource_id: str):
 async def create_dataset(data: Dict[str, Any]):
     """Create a new dataset resource."""
     result = await make_authenticated_request("POST", "/api/v1/rf/resources/dataset", json=data)
-    return result
-
-@app.get("/resources/tag")
-async def get_all_tags():
-    """Get all available tags from the catalog."""
-    endpoint = "/api/v1/rf/resources/public/tags/all"
-    logger.info(f"TAGS DEBUG: About to call endpoint: {endpoint}")
-    result = await make_authenticated_request("GET", endpoint)
     return result
 
 @app.post("/resources/notebook")
@@ -477,7 +470,7 @@ async def list_tools():
         ToolInfo(
             name="get_all_tags",
             description="Get all available tags from the catalog for filtering and organization",
-            endpoint="/resources/tags/all",
+            endpoint="/resources/tags",
             method="GET",
             parameters={},
             response_schema={"type": "array", "items": {"type": "string"}}
