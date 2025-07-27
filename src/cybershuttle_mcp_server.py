@@ -112,10 +112,20 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     
     headers = kwargs.get('headers', {})
     headers['Authorization'] = f'Bearer {token}'
+    headers['X-Claims'] = '{"userName":"sdas412@gatech.edu", "gatewayID":"default"}'
     kwargs['headers'] = headers
     
+    # ADD THIS DEBUG LOGGING
+    logger.info(f"DEBUG HEADERS: {headers}")
+    logger.info(f"DEBUG TOKEN (first 20 chars): {token[:20]}...")
+    logger.info(f"DEBUG INPUT: endpoint parameter = '{endpoint}'")
+    logger.info(f"DEBUG INPUT: CYBERSHUTTLE_API_BASE = '{CYBERSHUTTLE_API_BASE}'")
+    
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
-    logger.info(f"DEBUG: Full URL being called: {CYBERSHUTTLE_API_BASE}{endpoint}")
+    
+    # ADD THESE DEBUG LINES
+    logger.info(f"DEBUG OUTPUT: constructed URL = '{url}'")
+    logger.info(f"DEBUG: Full URL being called: {url}")
     
     try:
         response = requests.request(method, url, **kwargs)
@@ -127,6 +137,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error calling {endpoint}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to connect to Cybershuttle API: {e}")
+
 
 # === RESOURCE CONTROLLER ENDPOINTS ===
 
@@ -140,15 +151,11 @@ async def list_resources(
 ):
     """List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog."""
     params = {
-        "limit": limit,
-        "offset": offset,
+        "pageNumber": offset // limit,  # Convert offset to pageNumber
+        "pageSize": limit,              # Use pageSize instead of limit
+        "nameSearch": name if name else "",
+        "tag": tags if tags else ""
     }
-    
-    # FIX: Only send nameSearch parameter, not both name and nameSearch
-    if name:
-        params["nameSearch"] = name
-    else:
-        params["nameSearch"] = ""
     
     if resource_type:
         params["type"] = resource_type.upper()
@@ -160,7 +167,6 @@ async def list_resources(
 
     resources = []
     for item in result.get("content", []):
-        # FIX: Handle tags as objects with 'value' property
         tag_values = []
         for tag in item.get("tags", []):
             if isinstance(tag, dict):
@@ -184,8 +190,7 @@ async def list_resources(
 async def get_resource(resource_id: str):
     """Get a specific resource by ID."""
     result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
-    
-    # FIX: Handle tags as objects with 'value' property
+
     tag_values = []
     for tag in result.get("tags", []):
         if isinstance(tag, dict):
@@ -209,10 +214,12 @@ async def create_dataset(data: Dict[str, Any]):
     result = await make_authenticated_request("POST", "/api/v1/rf/resources/dataset", json=data)
     return result
 
-@app.get("/resources/tags")
+@app.get("/resources/tag")
 async def get_all_tags():
     """Get all available tags from the catalog."""
-    result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
+    endpoint = "/api/v1/rf/resources/public/tags/all"
+    logger.info(f"TAGS DEBUG: About to call endpoint: {endpoint}")
+    result = await make_authenticated_request("GET", endpoint)
     return result
 
 @app.post("/resources/notebook")
@@ -239,9 +246,11 @@ async def create_model(data: Dict[str, Any]):
 
 @app.get("/resources/search")
 async def search_resources(resource_type: str, name: str):
-    """Search resources by type and name."""
+    """Search for resources by type and name."""
     params = {"type": resource_type.upper(), "name": name}
-    result = await make_authenticated_request("GET", "/api/v1/rf/resources/search", params=params)
+    endpoint = "/api/v1/rf/resources/search"
+    logger.info(f"SEARCH DEBUG: About to call endpoint: {endpoint}")
+    result = await make_authenticated_request("GET", endpoint, params=params)
     return result
 
 # === PROJECT CONTROLLER ENDPOINTS ===
