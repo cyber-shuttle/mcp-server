@@ -114,8 +114,15 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     headers['Authorization'] = f'Bearer {token}'
     kwargs['headers'] = headers
     
+    # ADD THESE DEBUG LINES
+    logger.info(f"DEBUG INPUT: endpoint parameter = '{endpoint}'")
+    logger.info(f"DEBUG INPUT: CYBERSHUTTLE_API_BASE = '{CYBERSHUTTLE_API_BASE}'")
+    
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
-    logger.info(f"DEBUG: Full URL being called: {CYBERSHUTTLE_API_BASE}{endpoint}")
+    
+    # ADD THESE DEBUG LINES
+    logger.info(f"DEBUG OUTPUT: constructed URL = '{url}'")
+    logger.info(f"DEBUG: Full URL being called: {url}")
     
     try:
         response = requests.request(method, url, **kwargs)
@@ -127,6 +134,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error calling {endpoint}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to connect to Cybershuttle API: {e}")
+
 
 # === RESOURCE CONTROLLER ENDPOINTS ===
 
@@ -209,11 +217,39 @@ async def create_dataset(data: Dict[str, Any]):
     result = await make_authenticated_request("POST", "/api/v1/rf/resources/dataset", json=data)
     return result
 
-@app.get("/resources/tags")
+@app.get("/resources/tag")
 async def get_all_tags():
     """Get all available tags from the catalog."""
-    result = await make_authenticated_request("GET", "/api/v1/rf/resources/public/tags/all")
+    endpoint = "/api/v1/rf/resources/public/tags/all"
+    logger.info(f"TAGS DEBUG: About to call endpoint: {endpoint}")
+    result = await make_authenticated_request("GET", endpoint)
     return result
+
+# @app.get("/resources/tags")
+# async def get_all_tags():
+#     """Get all available tags from the catalog."""
+#     logger.info("=== TAGS FUNCTION START ===")
+    
+#     # Multiple ways to construct the endpoint
+#     endpoint1 = "/api/v1/rf/resources/public/tags/all"
+#     endpoint2 = "/api/v1/rf/resources/public/tags" + "/all"
+#     endpoint3 = f"/api/v1/rf/resources/public/tags/all"
+    
+#     logger.info(f"DEBUG: endpoint1 = '{endpoint1}'")
+#     logger.info(f"DEBUG: endpoint2 = '{endpoint2}'")
+#     logger.info(f"DEBUG: endpoint3 = '{endpoint3}'")
+#     logger.info(f"DEBUG: Are they equal? {endpoint1 == endpoint2 == endpoint3}")
+#     logger.info(f"DEBUG: endpoint1 length = {len(endpoint1)}")
+    
+#     # Use the first one
+#     endpoint = endpoint1
+#     logger.info(f"TAGS DEBUG: About to call endpoint: '{endpoint}'")
+#     logger.info(f"TAGS DEBUG: endpoint type: {type(endpoint)}")
+#     logger.info(f"TAGS DEBUG: endpoint repr: {repr(endpoint)}")
+    
+#     logger.info("=== CALLING make_authenticated_request ===")
+#     result = await make_authenticated_request("GET", endpoint)
+#     return result
 
 @app.post("/resources/notebook")
 async def create_notebook(data: Dict[str, Any]):
@@ -239,9 +275,11 @@ async def create_model(data: Dict[str, Any]):
 
 @app.get("/resources/search")
 async def search_resources(resource_type: str, name: str):
-    """Search resources by type and name."""
+    """Search for resources by type and name."""
     params = {"type": resource_type.upper(), "name": name}
-    result = await make_authenticated_request("GET", "/api/v1/rf/resources/search", params=params)
+    endpoint = "/api/v1/rf/resources/search"
+    logger.info(f"SEARCH DEBUG: About to call endpoint: {endpoint}")
+    result = await make_authenticated_request("GET", endpoint, params=params)
     return result
 
 # === PROJECT CONTROLLER ENDPOINTS ===
