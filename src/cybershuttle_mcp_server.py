@@ -112,9 +112,12 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     
     headers = kwargs.get('headers', {})
     headers['Authorization'] = f'Bearer {token}'
+    headers['X-Claims'] = '{"userName":"sdas412@gatech.edu", "gatewayID":"default"}'
     kwargs['headers'] = headers
     
-    # ADD THESE DEBUG LINES
+    # ADD THIS DEBUG LOGGING
+    logger.info(f"DEBUG HEADERS: {headers}")
+    logger.info(f"DEBUG TOKEN (first 20 chars): {token[:20]}...")
     logger.info(f"DEBUG INPUT: endpoint parameter = '{endpoint}'")
     logger.info(f"DEBUG INPUT: CYBERSHUTTLE_API_BASE = '{CYBERSHUTTLE_API_BASE}'")
     
@@ -148,15 +151,11 @@ async def list_resources(
 ):
     """List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog."""
     params = {
-        "limit": limit,
-        "offset": offset,
+        "pageNumber": offset // limit,  # Convert offset to pageNumber
+        "pageSize": limit,              # Use pageSize instead of limit
+        "nameSearch": name if name else "",
+        "tag": tags if tags else ""
     }
-    
-    # FIX: Only send nameSearch parameter, not both name and nameSearch
-    if name:
-        params["nameSearch"] = name
-    else:
-        params["nameSearch"] = ""
     
     if resource_type:
         params["type"] = resource_type.upper()
@@ -168,7 +167,6 @@ async def list_resources(
 
     resources = []
     for item in result.get("content", []):
-        # FIX: Handle tags as objects with 'value' property
         tag_values = []
         for tag in item.get("tags", []):
             if isinstance(tag, dict):
@@ -192,8 +190,7 @@ async def list_resources(
 async def get_resource(resource_id: str):
     """Get a specific resource by ID."""
     result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
-    
-    # FIX: Handle tags as objects with 'value' property
+
     tag_values = []
     for tag in result.get("tags", []):
         if isinstance(tag, dict):
@@ -224,32 +221,6 @@ async def get_all_tags():
     logger.info(f"TAGS DEBUG: About to call endpoint: {endpoint}")
     result = await make_authenticated_request("GET", endpoint)
     return result
-
-# @app.get("/resources/tags")
-# async def get_all_tags():
-#     """Get all available tags from the catalog."""
-#     logger.info("=== TAGS FUNCTION START ===")
-    
-#     # Multiple ways to construct the endpoint
-#     endpoint1 = "/api/v1/rf/resources/public/tags/all"
-#     endpoint2 = "/api/v1/rf/resources/public/tags" + "/all"
-#     endpoint3 = f"/api/v1/rf/resources/public/tags/all"
-    
-#     logger.info(f"DEBUG: endpoint1 = '{endpoint1}'")
-#     logger.info(f"DEBUG: endpoint2 = '{endpoint2}'")
-#     logger.info(f"DEBUG: endpoint3 = '{endpoint3}'")
-#     logger.info(f"DEBUG: Are they equal? {endpoint1 == endpoint2 == endpoint3}")
-#     logger.info(f"DEBUG: endpoint1 length = {len(endpoint1)}")
-    
-#     # Use the first one
-#     endpoint = endpoint1
-#     logger.info(f"TAGS DEBUG: About to call endpoint: '{endpoint}'")
-#     logger.info(f"TAGS DEBUG: endpoint type: {type(endpoint)}")
-#     logger.info(f"TAGS DEBUG: endpoint repr: {repr(endpoint)}")
-    
-#     logger.info("=== CALLING make_authenticated_request ===")
-#     result = await make_authenticated_request("GET", endpoint)
-#     return result
 
 @app.post("/resources/notebook")
 async def create_notebook(data: Dict[str, Any]):
