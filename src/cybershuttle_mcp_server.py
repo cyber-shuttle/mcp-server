@@ -35,6 +35,11 @@ class ResourceResponse(BaseModel):
     type: str
     description: Optional[str] = None
     tags: List[str] = []
+    authors: List[str] = []
+    status: Optional[str] = None
+    state: Optional[str] = None
+    repository_url: Optional[str] = None
+    dataset_url: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -43,8 +48,30 @@ class ProjectResponse(BaseModel):
     name: str
     description: Optional[str] = None
     owner_id: str
+    state: Optional[str] = None
+    repository_resource: Optional[Dict[str, Any]] = None
+    dataset_resources: List[Dict[str, Any]] = []
     created_at: Optional[str] = None
-    resources: List[str] = []
+    updated_at: Optional[str] = None
+    
+    @property
+    def has_repository(self) -> bool:
+        return self.repository_resource is not None
+    
+    @property
+    def has_datasets(self) -> bool:
+        return len(self.dataset_resources) > 0
+    
+    @property
+    def all_tags(self) -> List[str]:
+        """Get all tags from repository and datasets."""
+        tags = []
+        if self.repository_resource and "tags" in self.repository_resource:
+            tags.extend([tag["value"] for tag in self.repository_resource["tags"]])
+        for dataset in self.dataset_resources:
+            if "tags" in dataset:
+                tags.extend([tag["value"] for tag in dataset["tags"]])
+        return list(set(tags))
 
 class SessionResponse(BaseModel):
     id: str
@@ -155,22 +182,21 @@ async def list_resources(
     resource_type: Optional[str] = None,
     tags: Optional[str] = None,
     name: Optional[str] = None,
-    # limit: int = 10,  # these params are not in the API URLs, and have no effect
-    # offset: int = 0   # these params are not in the API URLs, and have no effect
 ):
     """List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog."""
     params = {
-        "pageNumber": 0,  # Convert offset to pageNumber
-        "pageSize": 100,    # Use pageSize instead of limit
-        "nameSearch": name if name else "",  # can't have both name and nameSearch
-        "tag": tags if tags else "",    # changing from tags ---> tag
-        "type": resource_type.upper() if resource_type else ""
+        "type": resource_type.upper() if resource_type else "",
+        "tag": tags if tags else "",
+        "nameSearch": name if name else "",
+        "pageNumber": 0,
+        "pageSize": 100,
     }
     
     result = await make_authenticated_request("GET", "/api/v1/rf/resources/public", params=params)
 
     resources = []
     for item in result.get("content", []):
+        # Process tags
         tag_values = []
         for tag in item.get("tags", []):
             if isinstance(tag, dict):
@@ -178,12 +204,22 @@ async def list_resources(
             else:
                 tag_values.append(str(tag))
         
+        # Process authors - handle both string and list formats
+        authors = item.get("authors", [])
+        if isinstance(authors, str):
+            authors = [authors]  # Convert single string to list
+        
         resources.append(ResourceResponse(
             id=str(item.get("id", "")),
             name=item.get("name", ""),
             type=item.get("type", ""),
             description=item.get("description", ""),
-            tags=tag_values,  # Use processed tag values
+            tags=tag_values,
+            authors=authors,
+            status=item.get("status"),
+            state=item.get("state"),
+            repository_url=item.get("repositoryUrl"),
+            dataset_url=item.get("datasetUrl"),
             created_at=item.get("createdAt"),
             updated_at=item.get("updatedAt")
         ))
@@ -195,6 +231,7 @@ async def get_resource(resource_id: str):
     """Get a specific resource by ID."""
     result = await make_authenticated_request("GET", f"/api/v1/rf/resources/public/{resource_id}")
 
+    # Process tags
     tag_values = []
     for tag in result.get("tags", []):
         if isinstance(tag, dict):
@@ -202,12 +239,22 @@ async def get_resource(resource_id: str):
         else:
             tag_values.append(str(tag))
     
+    # Process authors
+    authors = result.get("authors", [])
+    if isinstance(authors, str):
+        authors = [authors]
+    
     return ResourceResponse(
         id=str(result.get("id", "")),
         name=result.get("name", ""),
         type=result.get("type", ""),
         description=result.get("description", ""),
-        tags=tag_values,  # Use processed tag values
+        tags=tag_values,
+        authors=authors,
+        status=result.get("status"),
+        state=result.get("state"),
+        repository_url=result.get("repositoryUrl"),
+        dataset_url=result.get("datasetUrl"),
         created_at=result.get("createdAt"),
         updated_at=result.get("updatedAt")
     )
@@ -240,6 +287,7 @@ async def create_model(data: Dict[str, Any]):
     result = await make_authenticated_request("POST", "/api/v1/rf/resources/model", json=data)
     return result
 
+# Endpoint Not Working ---> we will instead just use the /resources endpoint and the nameSearch parameter
 @app.get("/resources/search")
 async def search_resources(resource_type: str, name: str):
     """Search for resources by type and name."""
@@ -264,8 +312,11 @@ async def list_projects():
             name=item.get("name", ""),
             description=item.get("description", ""),
             owner_id=str(item.get("ownerId", "")),
+            state=item.get("state"),
+            repository_resource=item.get("repositoryResource"),
+            dataset_resources=item.get("datasetResources", []),
             created_at=item.get("createdAt"),
-            resources=item.get("resources", [])
+            updated_at=item.get("updatedAt")
         ))
     
     return projects
@@ -372,7 +423,7 @@ async def list_tools():
                 "limit": {"type": "integer", "description": "Number of results to return", "default": 10},
                 "offset": {"type": "integer", "description": "Offset for pagination", "default": 0}
             },
-            response_schema=ResourceResponse.model_json_schema() # switched from .schema()
+            response_schema=ResourceResponse.model_json_schema()
         ),
         ToolInfo(
             name="get_resource",
@@ -382,7 +433,7 @@ async def list_tools():
             parameters={
                 "resource_id": {"type": "string", "description": "ID of the resource to retrieve", "required": True}
             },
-            response_schema=ResourceResponse.model_json_schema() # switched from .schema()
+            response_schema=ResourceResponse.model_json_schema()
         ),
         ToolInfo(
             name="search_resources",
@@ -393,7 +444,7 @@ async def list_tools():
                 "resource_type": {"type": "string", "description": "Type of resource to search for", "required": True},
                 "name": {"type": "string", "description": "Name to search for", "required": True}
             },
-            response_schema={"type": "array", "items": ResourceResponse.model_json_schema()} # switched from .schema()
+            response_schema={"type": "array", "items": ResourceResponse.model_json_schema()}
         ),
         ToolInfo(
             name="create_dataset",
@@ -441,7 +492,7 @@ async def list_tools():
             endpoint="/projects",
             method="GET",
             parameters={},
-            response_schema={"type": "array", "items": ProjectResponse.model_json_schema()} # switched from .schema()
+            response_schema={"type": "array", "items": ProjectResponse.model_json_schema()}
         ),
         ToolInfo(
             name="create_project",
@@ -472,7 +523,7 @@ async def list_tools():
             parameters={
                 "status": {"type": "string", "description": "Filter by session status", "optional": True}
             },
-            response_schema={"type": "array", "items": SessionResponse.model_json_schema()} # switched from .schema()
+            response_schema={"type": "array", "items": SessionResponse.model_json_schema()}
         ),
         ToolInfo(
             name="get_all_tags",

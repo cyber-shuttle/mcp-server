@@ -13,7 +13,7 @@ MCP_SERVER_URL = "http://127.0.0.1:8000"
 functions = [
     {
         "name": "list_resources",
-        "description": "List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog with filtering options",
+        "description": "List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog with filtering options. For domain-specific searches, use appropriate tags: neuroscience→neurodata25, ML→brainml, vision→image-classification, NLP→natural-language-processing",
         "parameters": {
             "type": "object",
             "properties": {
@@ -24,7 +24,7 @@ functions = [
                 },
                 "tags": {
                     "type": "string",
-                    "description": "Filter by tags"
+                    "description": "Filter by tags (use: neurodata25 for neuroscience, brainml for ML, image-classification for vision)"
                 },
                 "name": {
                     "type": "string",
@@ -54,7 +54,7 @@ functions = [
     },
     {
         "name": "search_resources",
-        "description": "Search for resources by type and name",
+        "description": "Search for resources by content relevance using name matching. Use keywords from user's query as search terms.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -64,8 +64,8 @@ functions = [
                     "enum": ["dataset", "notebook", "repository", "model"]
                 },
                 "name": {
-                    "type": "string",
-                    "description": "Name to search for"
+                    "type": "string", 
+                    "description": "Search term extracted from user query (e.g., 'DeepSeek', 'machine learning', 'neural networks')"
                 }
             },
             "required": ["resource_type", "name"]
@@ -206,7 +206,21 @@ functions = [
             "type": "object",
             "properties": {}
         }
+    },
+    {
+    "name": "search_projects",
+    "description": "Search for research projects by keywords, topics, or research areas",
+    "parameters": {
+        "type": "object", 
+        "properties": {
+            "search_term": {
+                "type": "string",
+                "description": "Search term for project names, descriptions, or associated research topics"
+            }
+        },
+        "required": ["search_term"]
     }
+}
 ]
 
 def call_mcp_function(function_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
@@ -215,13 +229,14 @@ def call_mcp_function(function_name: str, parameters: Dict[str, Any]) -> Dict[st
         endpoint_map = {
             "list_resources": "/resources",
             "get_resource": "/resources/{resource_id}",
-            "search_resources": "/resources/search",
+            "search_resources": "/resources",
             "create_dataset": "/resources/dataset",
             "create_notebook": "/resources/notebook",
             "create_repository": "/resources/repository",
             "create_model": "/resources/model",
             "list_projects": "/projects",
             "create_project": "/projects",
+            "search_projects": "/projects",
             "start_project_session": "/hub/start-session/{project_id}",
             "list_sessions": "/sessions",
             "get_all_tags": "/resources/tags"
@@ -237,6 +252,7 @@ def call_mcp_function(function_name: str, parameters: Dict[str, Any]) -> Dict[st
             "create_model": "POST",
             "list_projects": "GET",
             "create_project": "POST",
+            "search_projects": "GET",
             "start_project_session": "GET",
             "list_sessions": "GET",
             "get_all_tags": "GET"
@@ -258,6 +274,60 @@ def call_mcp_function(function_name: str, parameters: Dict[str, Any]) -> Dict[st
             params = {"session_name": parameters.get("session_name")}
         elif function_name == "create_repository":
             params = {"github_url": parameters.get("github_url")}
+        elif function_name == "search_resources":
+            params = {
+                "resource_type": parameters.get("resource_type", "").lower(),
+                "name": parameters.get("name", "")
+            }
+        elif function_name == "search_projects":
+            response = requests.get(f"{MCP_SERVER_URL}/projects")
+            if response.status_code == 200:
+                all_projects = response.json()
+                search_term = parameters.get("search_term", "").lower()
+                
+                semantic_params = get_semantic_search_params(search_term)
+                print(f"DEBUG: search_term='{search_term}', semantic_params={semantic_params}")
+
+                if "tags" in semantic_params:
+                    target_tag = semantic_params["tags"].lower()
+                    print(f"DEBUG: Looking for tag: {target_tag}")
+                else:
+                    target_tag = search_term
+                
+                filtered = []
+                for project in all_projects:
+                    project_matched = False
+
+                    if (search_term in project.get("name", "").lower() or 
+                        search_term in project.get("description", "").lower()):
+                        filtered.append(project)
+                        print(f"DEBUG: Matched by name/desc: {project.get('name')}")
+                        continue
+
+                    repo = project.get("repositoryResource", {})
+                    if repo and "tags" in repo:
+                        repo_tags = [tag.get("value", "").lower() for tag in repo["tags"]]
+                        print(f"DEBUG: Project '{project.get('name')}' repo tags: {repo_tags}")
+                        if target_tag in repo_tags or any(search_term in tag for tag in repo_tags):
+                            filtered.append(project)
+                            print(f"DEBUG: Matched by repo tags: {project.get('name')}")
+                            project_matched = True
+
+                    if not project_matched:
+                        datasets = project.get("datasetResources", [])
+                        for dataset in datasets:
+                            if "tags" in dataset:
+                                dataset_tags = [tag.get("value", "").lower() for tag in dataset["tags"]]
+                                print(f"DEBUG: Project '{project.get('name')}' dataset tags: {dataset_tags}")
+                                if target_tag in dataset_tags or any(search_term in tag for tag in dataset_tags):
+                                    filtered.append(project)
+                                    print(f"DEBUG: Matched by dataset tags: {project.get('name')}")
+                                    break
+                
+                print(f"DEBUG: Found {len(filtered)} matching projects")
+                return filtered
+            else:
+                return {"error": f"Failed to search projects: {response.text}"}
         else:
             if method == "GET":
                 params = parameters
@@ -283,7 +353,7 @@ def call_mcp_function(function_name: str, parameters: Dict[str, Any]) -> Dict[st
         return {"error": f"Failed to call MCP function: {str(e)}"}
 
 def display_resources(resources: List[Dict[str, Any]]) -> str:
-    """Format resources for display."""
+    """Format resources for display with enhanced metadata."""
     if not resources:
         return "No resources found."
     
@@ -291,22 +361,56 @@ def display_resources(resources: List[Dict[str, Any]]) -> str:
     for resource in resources:
         formatted += f"• **{resource.get('name', 'Unknown')}** ({resource.get('type', 'Unknown')})\n"
         formatted += f"  {resource.get('description', 'No description')}\n"
-        formatted += f"  Tags: {', '.join(resource.get('tags', []))}\n"
-        formatted += f"  ID: {resource.get('id')}\n\n"
+
+        authors = resource.get('authors', [])
+        if authors:
+            formatted += f"  👥 Authors: {', '.join(authors)}\n"
+
+        status = resource.get('status')
+        if status:
+            formatted += f"  📊 Status: {status}\n"
+
+        repo_url = resource.get('repository_url')
+        if repo_url:
+            formatted += f"  🔗 Repository: {repo_url}\n"
+ 
+        dataset_url = resource.get('dataset_url')
+        if dataset_url:
+            formatted += f"  📂 Dataset: {dataset_url}\n"
+        
+        formatted += f"  🏷️ Tags: {', '.join(resource.get('tags', []))}\n"
+        formatted += f"  🆔 ID: {resource.get('id')}\n\n"
     
     return formatted
 
 def display_projects(projects: List[Dict[str, Any]]) -> str:
-    """Format projects for display."""
+    """Format projects for display with enhanced metadata."""
     if not projects:
         return "No projects found."
     
     formatted = "\n**Cybershuttle Projects:**\n"
     for project in projects:
         formatted += f"• **{project.get('name', 'Unknown')}**\n"
-        formatted += f"  {project.get('description', 'No description')}\n"
-        formatted += f"  Owner: {project.get('owner_id')}\n"
-        formatted += f"  ID: {project.get('id')}\n\n"
+        formatted += f"  📝 Description: {project.get('description', 'No description')}\n"
+        formatted += f"  👤 Owner: {project.get('owner_id')}\n"
+
+        repo_resource = project.get('repository_resource')
+        dataset_resources = project.get('dataset_resources', [])
+        
+        resource_info = []
+        if repo_resource:
+            resource_info.append("1 repository")
+        if dataset_resources:
+            resource_info.append(f"{len(dataset_resources)} dataset(s)")
+        
+        if resource_info:
+            formatted += f"  📊 Resources: {', '.join(resource_info)}\n"
+
+        state = project.get('state')
+        if state:
+            formatted += f"  🔄 State: {state}\n"
+        
+        formatted += f"  🆔 ID: {project.get('id')}\n\n"
     
     return formatted
 
@@ -323,6 +427,75 @@ def display_sessions(sessions: List[Dict[str, Any]]) -> str:
         formatted += f"  ID: {session.get('id')}\n\n"
     
     return formatted
+
+def display_specific_resource(resource: Dict[str, Any]) -> str:
+    """Format a single resource with full enhanced details."""
+    formatted = f"\n**🎯 Found Resource: {resource.get('name')}**\n"
+    formatted += f"**Type:** {resource.get('type')}\n"
+    formatted += f"**Description:** {resource.get('description', 'No description')}\n"
+
+    authors = resource.get('authors', [])
+    if authors:
+        formatted += f"**👥 Authors:** {', '.join(authors)}\n"
+    
+    status = resource.get('status')
+    if status:
+        formatted += f"**📊 Status:** {status}\n"
+    
+    state = resource.get('state')
+    if state:
+        formatted += f"**🔄 State:** {state}\n"
+    
+    repo_url = resource.get('repository_url')
+    if repo_url:
+        formatted += f"**🔗 Repository:** {repo_url}\n"
+    
+    dataset_url = resource.get('dataset_url')
+    if dataset_url:
+        formatted += f"**📂 Dataset:** {dataset_url}\n"
+    
+    formatted += f"**🏷️ Tags:** {', '.join(resource.get('tags', []))}\n"
+    formatted += f"**🆔 ID:** {resource.get('id')}\n"
+    
+    return formatted
+
+def display_filtered_projects(projects: List[Dict[str, Any]], criteria: str) -> str:
+    """Format projects with filtering context."""
+    if not projects:
+        return f"No projects found matching '{criteria}'."
+    
+    formatted = f"\n**🔍 Projects matching '{criteria}' ({len(projects)} found):**\n"
+    for project in projects:
+        formatted += f"• **{project.get('name')}**\n"
+        formatted += f"  Owner: {project.get('owner_id')}\n"
+        formatted += f"  Resources: {len(project.get('dataset_resources', []))} datasets"
+        if project.get('repository_resource'):
+            formatted += ", 1 repository"
+        formatted += "\n"
+        if hasattr(project, 'all_tags'):
+            formatted += f"  Tags: {', '.join(project.all_tags[:5])}\n"
+        formatted += "\n"
+    
+    return formatted
+
+def get_semantic_search_params(query: str) -> dict:
+    """Convert natural language queries to search parameters."""
+    query_lower = query.lower()
+
+    if any(term in query_lower for term in ['neuroscience', 'brain', 'neural', 'neuro']):
+        return {"tags": "neurodata25"}
+
+    if any(term in query_lower for term in ['machine learning', 'ml', 'deep learning']):
+        return {"tags": "brainml"}
+
+    if any(term in query_lower for term in ['computer vision', 'image', 'visual']):
+        return {"tags": "image-classification"}
+
+    if any(term in query_lower for term in ['nlp', 'natural language', 'language processing']):
+        return {"tags": "natural-language-processing"}
+
+    return {"name": query}
+
 
 def main():
     """Main interactive loop for the Cybershuttle MCP demo."""
@@ -367,6 +540,15 @@ def main():
                         "content": """You are an AI assistant specialized in helping researchers interact with the Cybershuttle research platform. 
                         You can help users find, create, and manage datasets, notebooks, models, repositories, projects, and sessions.
                         Always be helpful and provide clear, actionable responses. When displaying results, format them nicely for readability.
+                        
+                        IMPORTANT TAG MAPPINGS for better search results:
+                        - "neuroscience" or "brain research" → use tags="neurodata25"
+                        - "machine learning" or "ML" → use tags="brainml" 
+                        - "deep learning" → use tags="llm" or search for "neural"
+                        - "computer vision" → use tags="image-classification" or "visual_cortex"
+                        - "natural language processing" → use tags="natural-language-processing" or "llm"
+                        
+                        When users ask for datasets/repositories "about X", use the list_resources function with appropriate tags or name filters.
                         If you need to call multiple functions to fulfill a request, do so systematically."""
                     },
                     {"role": "user", "content": user_message}
@@ -397,14 +579,20 @@ def main():
                 formatted_result = ""
                 if func_call.name == "list_resources":
                     formatted_result = display_resources(function_result)
+                elif func_call.name == "search_resources":
+                    if len(function_result) == 1:
+                        formatted_result = display_specific_resource(function_result[0])
+                    else:
+                        formatted_result = display_resources(function_result)
                 elif func_call.name == "list_projects":
                     formatted_result = display_projects(function_result)
+                elif func_call.name == "search_projects":
+                    search_term = args.get("search_term", "unknown")
+                    formatted_result = display_filtered_projects(function_result, search_term)
                 elif func_call.name == "list_sessions":
                     formatted_result = display_sessions(function_result)
                 elif func_call.name == "get_all_tags":
                     if isinstance(function_result, list):
-                        # Commenting out my implementation and using Sutej's
-                        # formatted_result = f"**Available Tags:** {', '.join(function_result)}"
                         formatted_result = f"**Available Tags:** {', '.join(tag.get('value', '') for tag in function_result)}"
                     else:
                         formatted_result = f"**Available Tags:** {function_result}"
