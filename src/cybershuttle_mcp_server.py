@@ -61,6 +61,9 @@ class ToolInfo(BaseModel):
     parameters: Dict[str, Any]
     response_schema: Dict[str, Any]
 
+
+# === HANDLING AUTHENTICATION ===
+
 class AuthState:
     def __init__(self):
         self.token = None
@@ -115,7 +118,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     headers['X-Claims'] = '{"userName":"sdas412@gatech.edu", "gatewayID":"default"}'
     kwargs['headers'] = headers
     
-    # ADD THIS DEBUG LOGGING
+    # DEBUG LOGGING
     logger.info(f"DEBUG HEADERS: {headers}")
     logger.info(f"DEBUG TOKEN (first 20 chars): {token[:20]}...")
     logger.info(f"DEBUG INPUT: endpoint parameter = '{endpoint}'")
@@ -123,7 +126,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
     
-    # ADD THESE DEBUG LINES
+    # DEBUG LOGGING
     logger.info(f"DEBUG OUTPUT: constructed URL = '{url}'")
     logger.info(f"DEBUG: Full URL being called: {url}")
     
@@ -152,15 +155,15 @@ async def list_resources(
     resource_type: Optional[str] = None,
     tags: Optional[str] = None,
     name: Optional[str] = None,
-    limit: int = 10,
-    offset: int = 0
+    # limit: int = 10,  # these params are not in the API URLs, and have no effect
+    # offset: int = 0   # these params are not in the API URLs, and have no effect
 ):
     """List all resources (datasets, notebooks, repositories, models) from Cybershuttle catalog."""
     params = {
-        "pageNumber": offset // limit,  # Convert offset to pageNumber
-        "pageSize": limit,              # Use pageSize instead of limit
-        "nameSearch": name if name else "",
-        "tag": tags if tags else "",
+        "pageNumber": 0,  # Convert offset to pageNumber
+        "pageSize": 100,    # Use pageSize instead of limit
+        "nameSearch": name if name else "",  # can't have both name and nameSearch
+        "tag": tags if tags else "",    # changing from tags ---> tag
         "type": resource_type.upper() if resource_type else ""
     }
     
@@ -246,6 +249,7 @@ async def search_resources(resource_type: str, name: str):
     result = await make_authenticated_request("GET", endpoint, params=params)
     return result
 
+
 # === PROJECT CONTROLLER ENDPOINTS ===
 
 @app.get("/projects", response_model=List[ProjectResponse])
@@ -284,6 +288,7 @@ async def delete_project(project_id: str):
     result = await make_authenticated_request("DELETE", f"/api/v1/rf/projects/{project_id}")
     return result
 
+
 # === RESEARCH HUB CONTROLLER ENDPOINTS ===
 
 @app.get("/hub/start-session/{project_id}")
@@ -302,6 +307,7 @@ async def resume_session(session_id: str):
     """Resume an existing session."""
     result = await make_authenticated_request("GET", f"/api/v1/rf/hub/resume/session/{session_id}")
     return result
+
 
 # === SESSION CONTROLLER ENDPOINTS ===
 
@@ -342,6 +348,7 @@ async def delete_session(session_id: str):
     """Delete a session."""
     result = await make_authenticated_request("DELETE", f"/api/v1/rf/sessions/{session_id}")
     return result
+
 
 # === TOOL DISCOVERY ENDPOINT ===
 

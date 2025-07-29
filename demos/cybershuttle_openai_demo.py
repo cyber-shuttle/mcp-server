@@ -33,7 +33,7 @@ functions = [
                 "limit": {
                     "type": "integer",
                     "description": "Number of results to return",
-                    "default": 10
+                    "default": 15
                 }
             }
         }
