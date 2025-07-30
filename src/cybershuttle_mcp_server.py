@@ -145,17 +145,7 @@ async def make_authenticated_request(method: str, endpoint: str, **kwargs) -> Di
     headers['X-Claims'] = '{"userName":"sdas412@gatech.edu", "gatewayID":"default"}'
     kwargs['headers'] = headers
     
-    # DEBUG LOGGING
-    logger.info(f"DEBUG HEADERS: {headers}")
-    logger.info(f"DEBUG TOKEN (first 20 chars): {token[:20]}...")
-    logger.info(f"DEBUG INPUT: endpoint parameter = '{endpoint}'")
-    logger.info(f"DEBUG INPUT: CYBERSHUTTLE_API_BASE = '{CYBERSHUTTLE_API_BASE}'")
-    
     url = f"{CYBERSHUTTLE_API_BASE}{endpoint}"
-    
-    # DEBUG LOGGING
-    logger.info(f"DEBUG OUTPUT: constructed URL = '{url}'")
-    logger.info(f"DEBUG: Full URL being called: {url}")
     
     try:
         response = requests.request(method, url, **kwargs)
