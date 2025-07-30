@@ -1,11 +1,12 @@
+#!/usr/bin/env python3
 """
-Cybershuttle LangChain + Qwen3 Demo
+Cybershuttle LangChain + Qwen3 Demo - Robust & Simple Version
 
-This demo showcases enhanced research discovery capabilities using:
-- LangChain for intelligent tool orchestration
-- Qwen3 (via Ollama) for cost-effective, customizable LLM
-- Enhanced reasoning for better research discovery
-- Semantic understanding of research domains
+This demo focuses on reliability and simplicity:
+- Direct API calls matching your MCP server exactly
+- No unnecessary complexity or extra tools
+- Robust search that handles all query types
+- Clean, simple tool architecture
 """
 
 import os
@@ -36,386 +37,441 @@ class ResearchCallbackHandler(BaseCallbackHandler):
         print(f"✅ **Research Complete**")
 
 class CybershuttleLangChainTools:
-    """LangChain-compatible tools for Cybershuttle MCP integration."""
+    """Simple, robust tools for Cybershuttle MCP integration."""
     
     def __init__(self):
         self.mcp_url = MCP_SERVER_URL
     
-    def _call_mcp_api(self, method: str, endpoint: str, params: Dict = None, json_data: Dict = None) -> Dict[str, Any]:
-        """Make API call to MCP server."""
+    def _call_mcp_api(self, method: str, endpoint: str, params: Dict = None) -> Dict[str, Any]:
+        """Make API call to MCP server with proper error handling."""
         try:
             url = f"{self.mcp_url}{endpoint}"
             
             if method.upper() == "GET":
-                response = requests.get(url, params=params)
-            elif method.upper() == "POST":
-                response = requests.post(url, json=json_data, params=params)
+                response = requests.get(url, params=params, timeout=10)
             else:
                 return {"error": f"Unsupported method: {method}"}
             
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                # Always return the result as-is (your MCP server returns lists directly)
+                return result if result else []
             else:
                 return {"error": f"API call failed: {response.status_code} - {response.text}"}
                 
         except Exception as e:
             return {"error": f"Request failed: {str(e)}"}
     
-    def enhanced_semantic_search(self, query: str) -> Dict[str, str]:
-        """Enhanced semantic search parameter mapping with domain intelligence."""
-        query_lower = query.lower()
-
-        if any(term in query_lower for term in [
-            'neuroscience', 'brain', 'neural', 'neuro', 'cortex', 'synapse',
-            'cognitive', 'fmri', 'eeg', 'neuroimaging', 'connectome'
-        ]):
-            return {"tags": "neurodata25", "domain": "neuroscience"}
-
-        if any(term in query_lower for term in [
-            'machine learning', 'ml', 'deep learning', 'neural network',
-            'tensorflow', 'pytorch', 'transformer', 'llm', 'gpt'
-        ]):
-            return {"tags": "brainml", "domain": "machine_learning"}
-
-        if any(term in query_lower for term in [
-            'computer vision', 'image', 'visual', 'opencv', 'cnn',
-            'classification', 'detection', 'segmentation'
-        ]):
-            return {"tags": "image-classification", "domain": "computer_vision"}
-
-        if any(term in query_lower for term in [
-            'nlp', 'natural language', 'text', 'language processing',
-            'sentiment', 'tokenization', 'embedding'
-        ]):
-            return {"tags": "natural-language-processing", "domain": "nlp"}
-
-        if any(term in query_lower for term in [
-            'data science', 'analytics', 'statistics', 'pandas',
-            'visualization', 'jupyter', 'python'
-        ]):
-            return {"name": query, "domain": "data_science"}
+    def search_resources(self, query: str) -> str:
+        """Main resource search tool - handles all resource discovery."""
         
-        # default fallback
-        return {"name": query, "domain": "general"}
-    
-    def list_resources_tool(self, query: str) -> str:
-        """Enhanced resource listing with intelligent filtering."""
-        search_params = self.enhanced_semantic_search(query)
-
+        # Clean the input properly - remove quotes and extra whitespace
+        query_clean = query.strip().strip('"').strip("'").lower()
+        
+        # Determine if looking for specific resource type
         resource_type = None
-        if "dataset" in query.lower():
-            resource_type = "dataset"
-        elif "notebook" in query.lower():
-            resource_type = "notebook"
-        elif "repository" in query.lower() or "repo" in query.lower():
+        if "repository" in query_clean or "repo" in query_clean:
             resource_type = "repository"
-        elif "model" in query.lower():
+        elif "dataset" in query_clean:
+            resource_type = "dataset"
+        elif "notebook" in query_clean:
+            resource_type = "notebook"
+        elif "model" in query_clean:
             resource_type = "model"
-
-        params = {"pageNumber": 0, "pageSize": 100}
-        if resource_type:
-            params["resource_type"] = resource_type
-        if "tags" in search_params:
-            params["tags"] = search_params["tags"]
-        if "name" in search_params:
-            params["name"] = search_params["name"]
         
-        result = self._call_mcp_api("GET", "/resources", params=params)
+        # Extract search terms properly (preserve case for API calls)
+        original_query = query.strip().strip('"').strip("'")
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'find', 'show', 'me', 'get', 'are', 'there', 'any'}
         
-        if "error" in result:
-            return f"Error: {result['error']}"
-
-        domain = search_params.get("domain", "general")
-        formatted = f"🔬 **{domain.title().replace('_', ' ')} Resources** ({len(result)} found)\n\n"
+        # Split and clean, but preserve original case
+        words = []
+        for w in original_query.replace(',', ' ').replace('.', ' ').replace('?', ' ').split():
+            if w.lower() not in stop_words and len(w) > 1:
+                words.append(w)
         
-        for resource in result[:15]:
-            formatted += f"• **{resource.get('name', 'Unknown')}** ({resource.get('type', 'Unknown')})\n"
-            formatted += f"  📝 {resource.get('description', 'No description')[:100]}...\n"
+        print(f"🔍 Original query: '{original_query}'")
+        print(f"🔍 Search terms: {words}")
+        print(f"🔍 Resource type filter: {resource_type}")
+        
+        all_results = []
+        search_attempts = []
+        
+        # Strategy 1: Try exact multi-word phrases first (most specific)
+        if len(words) >= 2:
+            # Try the full phrase
+            full_phrase = ' '.join(words)
+            params = {"name": full_phrase}
+            if resource_type:
+                params["resource_type"] = resource_type
             
-            if resource.get('authors'):
-                formatted += f"  👥 Authors: {', '.join(resource['authors'][:3])}\n"
+            print(f"🔍 Trying full phrase: '{full_phrase}'")
+            result = self._call_mcp_api("GET", "/resources", params=params)
             
-            if resource.get('status'):
-                formatted += f"  📊 Status: {resource['status']}\n"
+            if isinstance(result, list):
+                if result:  # Non-empty list
+                    all_results.extend(result)
+                    search_attempts.append(f"phrase '{full_phrase}' -> {len(result)} results")
+                else:
+                    search_attempts.append(f"phrase '{full_phrase}' -> 0 results")
+            elif "error" in result:
+                search_attempts.append(f"phrase '{full_phrase}' -> error: {result['error']}")
             
-            if resource.get('repository_url'):
-                formatted += f"  🔗 {resource['repository_url']}\n"
+            # Try 2-word combinations
+            for i in range(len(words) - 1):
+                phrase = ' '.join(words[i:i+2])
+                if phrase != full_phrase:  # Don't repeat the full phrase
+                    params = {"name": phrase}
+                    if resource_type:
+                        params["resource_type"] = resource_type
+                    
+                    print(f"🔍 Trying 2-word phrase: '{phrase}'")
+                    result = self._call_mcp_api("GET", "/resources", params=params)
+                    
+                    if isinstance(result, list):
+                        if result:
+                            all_results.extend(result)
+                            search_attempts.append(f"phrase '{phrase}' -> {len(result)} results")
+                        else:
+                            search_attempts.append(f"phrase '{phrase}' -> 0 results")
+                    elif "error" in result:
+                        search_attempts.append(f"phrase '{phrase}' -> error: {result['error']}")
+        
+        # Strategy 2: Try individual significant terms (preserve case)
+        for word in words:
+            if len(word) > 2:  # Skip very short words
+                params = {"name": word}
+                if resource_type:
+                    params["resource_type"] = resource_type
+                
+                print(f"🔍 Trying individual term: '{word}'")
+                result = self._call_mcp_api("GET", "/resources", params=params)
+                
+                if isinstance(result, list):
+                    if result:
+                        all_results.extend(result)
+                        search_attempts.append(f"term '{word}' -> {len(result)} results")
+                    else:
+                        search_attempts.append(f"term '{word}' -> 0 results")
+                elif "error" in result:
+                    search_attempts.append(f"term '{word}' -> error: {result['error']}")
+        
+        # Strategy 3: Try common domain tags only if no results yet
+        if not all_results:
+            domain_tags = []
+            if any(term in query_clean for term in ['neuroscience', 'brain', 'neural', 'neuro']):
+                domain_tags.append('neurodata25')
+            if any(term in query_clean for term in ['machine learning', 'ml']):
+                domain_tags.append('brainml')
+            if any(term in query_clean for term in ['visual', 'cortex', 'vision']):
+                domain_tags.append('visual_cortex')
+            if any(term in query_clean for term in ['nlp', 'language', 'text']):
+                domain_tags.append('natural-language-processing')
             
-            formatted += f"  🏷️ {', '.join(resource.get('tags', [])[:5])}\n"
-            formatted += f"  🆔 {resource.get('id')}\n\n"
+            for tag in domain_tags:
+                params = {"tags": tag}
+                if resource_type:
+                    params["resource_type"] = resource_type
+                
+                print(f"🔍 Trying tag: '{tag}'")
+                result = self._call_mcp_api("GET", "/resources", params=params)
+                
+                if isinstance(result, list):
+                    if result:
+                        all_results.extend(result)
+                        search_attempts.append(f"tag '{tag}' -> {len(result)} results")
+                    else:
+                        search_attempts.append(f"tag '{tag}' -> 0 results")
+                elif "error" in result:
+                    search_attempts.append(f"tag '{tag}' -> error: {result['error']}")
+        
+        # Remove duplicates by ID
+        unique_results = []
+        seen_ids = set()
+        for item in all_results:
+            if isinstance(item, dict):
+                item_id = item.get('id')
+                if item_id and item_id not in seen_ids:
+                    seen_ids.add(item_id)
+                    unique_results.append(item)
+        
+        print(f"🔍 Search attempts made: {search_attempts}")
+        print(f"🔍 Unique results found: {len(unique_results)}")
+        
+        if not unique_results:
+            return f"❌ No resources found for '{original_query}'\n\nSearch attempts made:\n" + "\n".join(search_attempts) + "\n\nTry different keywords or check spelling."
+        
+        # Format results cleanly
+        formatted = f"🔬 **Found {len(unique_results)} Resource(s) for '{query}'**\n\n"
+        
+        for i, resource in enumerate(unique_results[:10], 1):  # Show top 10
+            name = resource.get('name', 'Unknown')
+            res_type = resource.get('type', 'Unknown')
+            description = resource.get('description', 'No description')
+            
+            formatted += f"{i}. **{name}** ({res_type})\n"
+            formatted += f"   📝 {description[:120]}{'...' if len(description) > 120 else ''}\n"
+            
+            # Authors
+            authors = resource.get('authors', [])
+            if authors:
+                formatted += f"   👥 Authors: {', '.join(authors[:3])}\n"
+            
+            # Status/State (only if meaningful)
+            status = resource.get('status')
+            if status and status != 'NONE':
+                formatted += f"   📊 Status: {status}\n"
+                
+            state = resource.get('state')
+            if state and state != 'ACTIVE':
+                formatted += f"   🔄 State: {state}\n"
+            
+            # URLs
+            repo_url = resource.get('repository_url')
+            if repo_url:
+                formatted += f"   🔗 Repository: {repo_url}\n"
+                
+            dataset_url = resource.get('dataset_url')
+            if dataset_url:
+                formatted += f"   📂 Dataset: {dataset_url}\n"
+            
+            # Tags (cleaned up)
+            tags = resource.get('tags', [])
+            if tags:
+                formatted += f"   🏷️ Tags: {', '.join(tags[:5])}\n"
+            
+            # Creation date (simplified)
+            created = resource.get('created_at')
+            if created:
+                date_part = created.split('T')[0] if 'T' in created else created
+                formatted += f"   📅 Created: {date_part}\n"
+            
+            formatted += f"   🆔 ID: {resource.get('id')}\n\n"
+        
+        if len(unique_results) > 10:
+            formatted += f"... and {len(unique_results) - 10} more results.\n"
         
         return formatted
     
-    def search_projects_tool(self, query: str) -> str:
-        """Enhanced project search with semantic understanding."""
-        search_params = self.enhanced_semantic_search(query)
-
+    def search_projects(self, query: str) -> str:
+        """Search for research projects."""
+        
+        # Get all projects
         result = self._call_mcp_api("GET", "/projects")
         
         if "error" in result:
-            return f"Error: {result['error']}"
-
-        filtered_projects = []
-        search_term = query.lower()
-        target_tag = search_params.get("tags", "").lower()
+            return f"Error searching projects: {result['error']}"
+        
+        if not isinstance(result, list) or not result:
+            return "No projects found in the system."
+        
+        query_lower = query.lower()
+        query_words = [w for w in query_lower.split() if len(w) > 2]
+        
+        # Score projects by relevance
+        scored_projects = []
         
         for project in result:
-            if (search_term in project.get("name", "").lower() or 
-                search_term in project.get("description", "").lower()):
-                filtered_projects.append(project)
-                continue
-
-            if target_tag:
-                repo = project.get("repositoryResource", {})
-                if repo and "tags" in repo:
-                    repo_tags = [tag.get("value", "").lower() for tag in repo["tags"]]
-                    if target_tag in repo_tags:
-                        filtered_projects.append(project)
-                        continue
-
-                for dataset in project.get("datasetResources", []):
-                    if "tags" in dataset:
-                        dataset_tags = [tag.get("value", "").lower() for tag in dataset["tags"]]
-                        if target_tag in dataset_tags:
-                            filtered_projects.append(project)
-                            break
-
-        domain = search_params.get("domain", "general")
-        formatted = f"🏗️ **{domain.title().replace('_', ' ')} Projects** ({len(filtered_projects)} found)\n\n"
+            score = 0
+            project_name = project.get("name", "").lower()
+            project_desc = project.get("description", "").lower()
+            
+            # Name matches (highest priority)
+            for word in query_words:
+                if word in project_name:
+                    score += 10
+                elif word in project_desc:
+                    score += 5
+            
+            # Tag matches from associated resources
+            repo_resource = project.get("repositoryResource", {})
+            if repo_resource and "tags" in repo_resource:
+                repo_tags = [tag.get("value", "").lower() for tag in repo_resource["tags"]]
+                for word in query_words:
+                    if any(word in tag for tag in repo_tags):
+                        score += 3
+            
+            for dataset in project.get("datasetResources", []):
+                if "tags" in dataset:
+                    dataset_tags = [tag.get("value", "").lower() for tag in dataset["tags"]]
+                    for word in query_words:
+                        if any(word in tag for tag in dataset_tags):
+                            score += 2
+            
+            if score > 0:
+                scored_projects.append((project, score))
         
-        for project in filtered_projects[:10]:
-            formatted += f"• **{project.get('name', 'Unknown')}**\n"
-            formatted += f"  📝 {project.get('description', 'No description')[:150]}...\n"
-            formatted += f"  👤 Owner: {project.get('owner_id')}\n"
-
+        # Sort by relevance
+        scored_projects.sort(key=lambda x: x[1], reverse=True)
+        
+        if not scored_projects:
+            return f"❌ No projects found matching '{query}'"
+        
+        # Format results
+        formatted = f"🏗️ **Found {len(scored_projects)} Project(s) for '{query}'**\n\n"
+        
+        for i, (project, score) in enumerate(scored_projects[:8], 1):
+            name = project.get('name', 'Unknown')
+            description = project.get('description', 'No description')
+            owner = project.get('owner_id', 'Unknown')
+            
+            formatted += f"{i}. **{name}** (relevance: {score})\n"
+            formatted += f"   📝 {description[:120]}{'...' if len(description) > 120 else ''}\n"
+            formatted += f"   👤 Owner: {owner}\n"
+            
+            # Resource counts
             repo_count = 1 if project.get('repositoryResource') else 0
             dataset_count = len(project.get('datasetResources', []))
-            formatted += f"  📊 Resources: {repo_count} repository, {dataset_count} datasets\n"
+            formatted += f"   📊 Resources: {repo_count} repository, {dataset_count} datasets\n"
             
-            formatted += f"  🆔 {project.get('id')}\n\n"
+            formatted += f"   🆔 ID: {project.get('id')}\n\n"
         
         return formatted
     
-    def get_resource_details_tool(self, resource_id: str) -> str:
-        """Get detailed resource information."""
-        result = self._call_mcp_api("GET", f"/resources/{resource_id}")
-        
-        if "error" in result:
-            return f"Error: {result['error']}"
-
-        formatted = f"🎯 **Resource Details: {result.get('name')}**\n\n"
-        formatted += f"**Type**: {result.get('type')}\n"
-        formatted += f"**Description**: {result.get('description', 'No description')}\n\n"
-        
-        if result.get('authors'):
-            formatted += f"**👥 Authors**: {', '.join(result['authors'])}\n"
-        
-        if result.get('status'):
-            formatted += f"**📊 Status**: {result['status']}\n"
-        
-        if result.get('repository_url'):
-            formatted += f"**🔗 Repository**: {result['repository_url']}\n"
-        
-        if result.get('dataset_url'):
-            formatted += f"**📂 Dataset**: {result['dataset_url']}\n"
-        
-        formatted += f"**🏷️ Tags**: {', '.join(result.get('tags', []))}\n"
-        
-        if result.get('created_at'):
-            formatted += f"**📅 Created**: {result['created_at']}\n"
-        
-        formatted += f"**🆔 ID**: {result.get('id')}\n"
-        
-        return formatted
-    
-    def create_resource_tool(self, resource_data: str) -> str:
-        """Create a new resource (dataset, notebook, model, or repository)."""
-        try:
-            if resource_data.startswith('{'):
-                data = json.loads(resource_data)
-            else:
-                return "Error: Please provide resource data in JSON format"
-            
-            resource_type = data.get('type', '').lower()
-            
-            if resource_type == 'repository':
-                github_url = data.get('github_url') or data.get('url')
-                if not github_url:
-                    return "Error: Repository creation requires 'github_url'"
-                result = self._call_mcp_api("POST", "/resources/repository", params={"github_url": github_url})
-            elif resource_type in ['dataset', 'notebook', 'model']:
-                result = self._call_mcp_api("POST", f"/resources/{resource_type}", json_data=data)
-            else:
-                return f"Error: Unsupported resource type '{resource_type}'. Use: dataset, notebook, model, repository"
-            
-            if "error" in result:
-                return f"Error creating resource: {result['error']}"
-            
-            return f"✅ Successfully created {resource_type}: {result.get('name', 'Unknown')}"
-            
-        except json.JSONDecodeError:
-            return "Error: Invalid JSON format in resource data"
-        except Exception as e:
-            return f"Error: {str(e)}"
-    
-    def get_research_tags_tool(self, domain: str = "") -> str:
-        """Get available research tags with domain organization."""
+    def get_available_tags(self, domain: str = "") -> str:
+        """Get all available research tags."""
         result = self._call_mcp_api("GET", "/resources/tags")
         
         if "error" in result:
-            return f"Error: {result['error']}"
+            return f"Error getting tags: {result['error']}"
         
         if not isinstance(result, list):
-            return "Error: Unexpected response format"
-
+            return "No tags found or unexpected format."
+        
+        # Extract tag values
         tags = []
         for tag in result:
             if isinstance(tag, dict):
-                tags.append(tag.get('value', ''))
+                value = tag.get('value', '')
+                if value:
+                    tags.append(value)
             else:
                 tags.append(str(tag))
         
-        domain_tags = {
-            'neuroscience': [t for t in tags if any(k in t.lower() for k in ['neuro', 'brain', 'cortex'])],
-            'machine_learning': [t for t in tags if any(k in t.lower() for k in ['ml', 'learning', 'neural'])],
-            'computer_vision': [t for t in tags if any(k in t.lower() for k in ['image', 'visual', 'cv'])],
-            'nlp': [t for t in tags if any(k in t.lower() for k in ['language', 'text', 'nlp'])],
-            'general': [t for t in tags if not any(k in t.lower() for k in ['neuro', 'brain', 'ml', 'image', 'language'])]
+        if domain:
+            # Filter by domain
+            domain_lower = domain.lower()
+            filtered = [t for t in tags if domain_lower in t.lower()]
+            if filtered:
+                return f"🏷️ **Tags containing '{domain}'**: {', '.join(filtered)}"
+            else:
+                return f"🏷️ **No tags found containing '{domain}'**\n\nAll tags: {', '.join(tags[:20])}"
+        
+        # Group tags by themes
+        themes = {
+            'Neuroscience': [t for t in tags if any(k in t.lower() for k in ['neuro', 'brain', 'cortex'])],
+            'Machine Learning': [t for t in tags if any(k in t.lower() for k in ['ml', 'learning', 'brain'])],
+            'Computer Vision': [t for t in tags if any(k in t.lower() for k in ['visual', 'image', 'vision'])],
+            'NLP': [t for t in tags if any(k in t.lower() for k in ['language', 'text', 'nlp'])],
+            'General': [t for t in tags if not any(k in t.lower() for k in ['neuro', 'brain', 'ml', 'visual', 'language'])]
         }
         
-        formatted = "🏷️ **Research Tags by Domain**\n\n"
+        formatted = f"🏷️ **Available Research Tags** ({len(tags)} total)\n\n"
         
-        for domain_name, domain_tag_list in domain_tags.items():
-            if domain_tag_list:
-                formatted += f"**{domain_name.title().replace('_', ' ')}**:\n"
-                formatted += f"  {', '.join(domain_tag_list[:10])}\n\n"
+        for theme, theme_tags in themes.items():
+            if theme_tags:
+                formatted += f"**{theme}**: {', '.join(theme_tags[:8])}\n"
+                if len(theme_tags) > 8:
+                    formatted += f"  ... and {len(theme_tags) - 8} more\n"
+                formatted += "\n"
         
         return formatted
     
     def get_tools(self) -> List[Tool]:
-        """Get all LangChain tools for the Cybershuttle MCP integration."""
+        """Get simple, reliable tools."""
         return [
             Tool(
-                name="list_resources",
-                description="Search and list research resources (datasets, notebooks, repositories, models). Use keywords like 'neuroscience', 'machine learning', 'computer vision' for domain-specific results.",
-                func=self.list_resources_tool
+                name="search_resources",
+                description="Search for any type of research resource (datasets, repositories, notebooks, models). Handles all search queries intelligently. Use this for finding specific resources or browsing by topic.",
+                func=self.search_resources
             ),
             Tool(
-                name="search_projects",
-                description="Search for research projects by domain, topic, or keywords. Understands research domains and semantic search.",
-                func=self.search_projects_tool
+                name="search_projects", 
+                description="Search for research projects. Projects can contain multiple resources and are organized by research goals.",
+                func=self.search_projects
             ),
             Tool(
-                name="get_resource_details",
-                description="Get detailed information about a specific resource using its ID.",
-                func=self.get_resource_details_tool
-            ),
-            Tool(
-                name="create_resource",
-                description="Create a new research resource. Provide JSON data with type (dataset/notebook/model/repository) and details.",
-                func=self.create_resource_tool
-            ),
-            Tool(
-                name="get_research_tags",
-                description="Get all available research tags organized by domain for better discovery and filtering.",
-                func=self.get_research_tags_tool
+                name="get_available_tags",
+                description="Get all available research tags, optionally filtered by domain. Useful for understanding how resources are categorized.",
+                func=self.get_available_tags
             )
         ]
 
 def create_research_agent() -> AgentExecutor:
-    """Create a LangChain agent specialized for research discovery."""
+    """Create a simple, robust research agent."""
     
-    # initializing Qwen3 via Ollama
+    # Initialize Qwen3
     llm = ChatOllama(
         model=OLLAMA_MODEL,
         temperature=0.1,
         base_url="http://localhost:11434"
     )
     
-    # getting Cybershuttle tools
+    # Get tools
     cybershuttle_tools = CybershuttleLangChainTools()
     tools = cybershuttle_tools.get_tools()
-
+    
+    # Simple, focused prompt
     research_prompt = PromptTemplate.from_template("""
-    You are an advanced AI research assistant specializing in scientific discovery and data exploration. 
-    You help researchers find datasets, notebooks, models, repositories, and projects from the Cybershuttle research platform.
+You are a research assistant for the Cybershuttle platform. You help users find datasets, repositories, notebooks, models, and projects.
 
-    You have access to powerful tools for:
-    - Searching resources with semantic understanding of research domains
-    - Finding projects related to specific research areas
-    - Getting detailed information about research artifacts
-    - Creating new research resources
-    - Understanding available research tags and domains
+Your approach:
+1. Use search_resources for finding any type of resource - it's intelligent and handles all queries
+2. Use search_projects for finding research projects specifically  
+3. Use get_available_tags to understand available categories
+4. Be direct and helpful - provide clear, formatted results
+5. If something isn't found, suggest alternative search terms
 
-    Key research domains you understand:
-    - Neuroscience & Brain Research (use 'neurodata25' tag)
-    - Machine Learning & AI (use 'brainml' tag) 
-    - Computer Vision (use 'image-classification' tag)
-    - Natural Language Processing (use 'natural-language-processing' tag)
-    - Data Science & Analytics
+Available tools: {tool_names}
+Tool descriptions: {tools}
 
-    When helping users:
-    1. Understand their research domain and intent
-    2. Use semantic search to find relevant resources
-    3. Provide rich, detailed information with context
-    4. Suggest related resources and next steps
-    5. Format results clearly with emojis and structure
+Use this format:
 
-    Available tools: {tool_names}
-    Tool descriptions: {tools}
+Question: the input question you must answer
+Thought: what I need to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (repeat Thought/Action/Action Input/Observation as needed)
+Thought: I now have the answer
+Final Answer: the complete answer with clear formatting
 
-    Use the following format:
-
-    Question: the input question you must answer
-    Thought: think about what you need to do
-    Action: the action to take, should be one of [{tool_names}]
-    Action Input: the input to the action
-    Observation: the result of the action
-    ... (this Thought/Action/Action Input/Observation can repeat N times)
-    Thought: I now know the final answer
-    Final Answer: the final answer to the original input question with rich formatting
-
-    Begin!
-
-    Question: {input}
-    Thought: {agent_scratchpad}
-    """
-    )
-
+Question: {input}
+Thought: {agent_scratchpad}
+""")
+    
+    # Create agent
     agent = create_react_agent(llm, tools, research_prompt)
-
+    
+    # Create executor
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
         verbose=True,
         callbacks=[ResearchCallbackHandler()],
-        max_iterations=5,
+        max_iterations=6,
         handle_parsing_errors=True
     )
     
     return agent_executor
 
 def main():
-    """Main interactive loop for the LangChain + Qwen3 demo."""
+    """Main interactive loop."""
     print("🚀 **Cybershuttle LangChain + Qwen3 Research Assistant**")
     print("=" * 60)
-    print("Enhanced research discovery with intelligent semantic understanding!")
+    print("Simple, robust research discovery!")
     print("Powered by LangChain + Qwen3 (via Ollama)")
     print()
     
+    # Check Ollama
     try:
         response = requests.get("http://localhost:11434/api/version", timeout=5)
         if response.status_code == 200:
             print("✅ Ollama server connected")
         else:
-            print("⚠️  Ollama server not responding. Please ensure Ollama is running.")
-            print("   Run: ollama serve")
+            print("⚠️  Ollama server not responding")
             return
     except requests.RequestException:
-        print("❌ Cannot connect to Ollama. Please ensure it's installed and running.")
-        print("   Install: curl -fsSL https://ollama.ai/install.sh | sh")
-        print("   Pull model: ollama pull qwen3:8b")
-        print("   Start server: ollama serve")
+        print("❌ Cannot connect to Ollama")
         return
     
     # Initialize agent
@@ -428,71 +484,56 @@ def main():
         return
     
     print()
-    print("**Example Research Queries:**")
-    example_queries = [
-        "Find neuroscience datasets with brain imaging data",
-        "Show me machine learning projects with neural networks", 
-        "What computer vision repositories are available?",
-        "Create a new dataset for my climate research project",
-        "Find all notebooks related to data visualization",
-        "What research tags are available for natural language processing?"
+    print("**Try these queries:**")
+    examples = [
+        "Find the SAT-2 classifier repository",
+        "Show me neural oscillators dataset", 
+        "Find biological RNNs",
+        "What neuroscience projects are available?",
+        "Show me computer vision repositories",
+        "What tags are available for machine learning?"
     ]
     
-    for i, query in enumerate(example_queries, 1):
-        print(f"   {i}. {query}")
+    for i, example in enumerate(examples, 1):
+        print(f"   {i}. {example}")
     
-    print("\nType 'exit' to quit, 'help' for more examples.\n")
+    print("\nType 'exit' to quit.\n")
     
     while True:
         try:
             user_input = input("🔬 Research Query: ").strip()
             
             if user_input.lower() in ['exit', 'quit', 'bye']:
-                print("Thank you for using the Cybershuttle Research Assistant! 🚀")
+                print("Thank you! 🚀")
                 break
-            
-            if user_input.lower() == 'help':
-                print("**Advanced Research Queries You Can Try:**")
-                advanced_queries = [
-                    "Compare machine learning datasets vs neuroscience datasets",
-                    "Find the most recent repositories in computer vision",
-                    "What projects combine neuroscience and machine learning?",
-                    "Show me all resources created by specific authors",
-                    "Find datasets that have both 'neural' and 'imaging' tags"
-                ]
-                for query in advanced_queries:
-                    print(f"   • {query}")
-                print()
-                continue
             
             if not user_input:
                 continue
             
-            print("\n🧠 **Qwen3 Agent Processing...**")
+            print(f"\n🧠 **Processing: '{user_input}'**")
             print("-" * 40)
             
-            # Run the agent
+            # Run agent
             result = agent.invoke({"input": user_input})
             
             print("\n" + "="*60)
-            print("🎯 **Research Results:**")
+            print("🎯 **Results:**")
             print("="*60)
             print(result['output'])
             print("="*60 + "\n")
             
         except KeyboardInterrupt:
-            print("\n\nExiting... Thank you for using the Research Assistant! 🚀")
+            print("\n\nExiting... 🚀")
             break
         except Exception as e:
-            print(f"❌ Error processing query: {e}")
-            print("Please try again or type 'help' for examples.\n")
+            print(f"❌ Error: {e}")
+            print("Please try again.\n")
 
 if __name__ == "__main__":
     try:
         print(f"Using LangChain version: {langchain.__version__}")
-    except ImportError as e:
-        print("❌ Missing required packages. Install with:")
-        print("pip install langchain langchain-ollama")
+    except ImportError:
+        print("❌ Install: pip install langchain langchain-ollama")
         exit(1)
     
     main()
