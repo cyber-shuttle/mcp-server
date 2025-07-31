@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Cybershuttle LangChain + Qwen3 Demo - Robust & Simple Version
 
@@ -78,6 +77,8 @@ class CybershuttleLangChainTools:
             resource_type = "notebook"
         elif "model" in query_clean:
             resource_type = "model"
+        else:
+            resource_type= "repository,notebook,dataset,model"
         
         # Extract search terms properly (preserve case for API calls)
         original_query = query.strip().strip('"').strip("'")
@@ -166,6 +167,9 @@ class CybershuttleLangChainTools:
                 domain_tags.append('visual_cortex')
             if any(term in query_clean for term in ['nlp', 'language', 'text']):
                 domain_tags.append('natural-language-processing')
+            if any(term in query_clean for term in ['computer vision', 'image']):
+                domain_tags.append('image-classification')
+                domain_tags.append('resnet')
             
             for tag in domain_tags:
                 params = {"tags": tag}
@@ -254,8 +258,7 @@ class CybershuttleLangChainTools:
     
     def search_projects(self, query: str) -> str:
         """Search for research projects."""
-        
-        # Get all projects
+
         result = self._call_mcp_api("GET", "/projects")
         
         if "error" in result:
@@ -266,8 +269,7 @@ class CybershuttleLangChainTools:
         
         query_lower = query.lower()
         query_words = [w for w in query_lower.split() if len(w) > 2]
-        
-        # Score projects by relevance
+
         scored_projects = []
         
         for project in result:
@@ -275,14 +277,12 @@ class CybershuttleLangChainTools:
             project_name = project.get("name", "").lower()
             project_desc = project.get("description", "").lower()
             
-            # Name matches (highest priority)
             for word in query_words:
                 if word in project_name:
                     score += 10
                 elif word in project_desc:
                     score += 5
-            
-            # Tag matches from associated resources
+
             repo_resource = project.get("repositoryResource", {})
             if repo_resource and "tags" in repo_resource:
                 repo_tags = [tag.get("value", "").lower() for tag in repo_resource["tags"]]
@@ -299,14 +299,12 @@ class CybershuttleLangChainTools:
             
             if score > 0:
                 scored_projects.append((project, score))
-        
-        # Sort by relevance
+
         scored_projects.sort(key=lambda x: x[1], reverse=True)
         
         if not scored_projects:
             return f"❌ No projects found matching '{query}'"
-        
-        # Format results
+
         formatted = f"🏗️ **Found {len(scored_projects)} Project(s) for '{query}'**\n\n"
         
         for i, (project, score) in enumerate(scored_projects[:8], 1):
@@ -317,8 +315,7 @@ class CybershuttleLangChainTools:
             formatted += f"{i}. **{name}** (relevance: {score})\n"
             formatted += f"   📝 {description[:120]}{'...' if len(description) > 120 else ''}\n"
             formatted += f"   👤 Owner: {owner}\n"
-            
-            # Resource counts
+
             repo_count = 1 if project.get('repositoryResource') else 0
             dataset_count = len(project.get('datasetResources', []))
             formatted += f"   📊 Resources: {repo_count} repository, {dataset_count} datasets\n"
@@ -336,8 +333,7 @@ class CybershuttleLangChainTools:
         
         if not isinstance(result, list):
             return "No tags found or unexpected format."
-        
-        # Extract tag values
+
         tags = []
         for tag in result:
             if isinstance(tag, dict):
@@ -348,15 +344,13 @@ class CybershuttleLangChainTools:
                 tags.append(str(tag))
         
         if domain:
-            # Filter by domain
             domain_lower = domain.lower()
             filtered = [t for t in tags if domain_lower in t.lower()]
             if filtered:
                 return f"🏷️ **Tags containing '{domain}'**: {', '.join(filtered)}"
             else:
                 return f"🏷️ **No tags found containing '{domain}'**\n\nAll tags: {', '.join(tags[:20])}"
-        
-        # Group tags by themes
+
         themes = {
             'Neuroscience': [t for t in tags if any(k in t.lower() for k in ['neuro', 'brain', 'cortex'])],
             'Machine Learning': [t for t in tags if any(k in t.lower() for k in ['ml', 'learning', 'brain'])],
@@ -398,51 +392,46 @@ class CybershuttleLangChainTools:
 
 def create_research_agent() -> AgentExecutor:
     """Create a simple, robust research agent."""
-    
-    # Initialize Qwen3
+
     llm = ChatOllama(
         model=OLLAMA_MODEL,
         temperature=0.1,
         base_url="http://localhost:11434"
     )
-    
-    # Get tools
+
     cybershuttle_tools = CybershuttleLangChainTools()
     tools = cybershuttle_tools.get_tools()
-    
-    # Simple, focused prompt
+
     research_prompt = PromptTemplate.from_template("""
-You are a research assistant for the Cybershuttle platform. You help users find datasets, repositories, notebooks, models, and projects.
+    You are a research assistant for the Cybershuttle platform. You help users find datasets, repositories, notebooks, models, and projects.
 
-Your approach:
-1. Use search_resources for finding any type of resource - it's intelligent and handles all queries
-2. Use search_projects for finding research projects specifically  
-3. Use get_available_tags to understand available categories
-4. Be direct and helpful - provide clear, formatted results
-5. If something isn't found, suggest alternative search terms
+    Your approach:
+    1. Use search_resources for finding any type of resource, as well as its relevant details - it's intelligent and handles all queries.
+    2. Use search_projects for finding research projects specifically and their relevant details. These details also include, what datasets they are using, the URL to their repository, etc.
+    3. Use get_available_tags to understand all the available tags which describe resources with keywords.
+    4. Be direct and helpful - provide clear, formatted results
+    5. If something isn't found, suggest alternative search terms
 
-Available tools: {tool_names}
-Tool descriptions: {tools}
+    Available tools: {tool_names}
+    Tool descriptions: {tools}
 
-Use this format:
+    Use this format:
 
-Question: the input question you must answer
-Thought: what I need to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (repeat Thought/Action/Action Input/Observation as needed)
-Thought: I now have the answer
-Final Answer: the complete answer with clear formatting
+    Question: the input question you must answer
+    Thought: what I need to do
+    Action: the action to take, should be one of [{tool_names}]
+    Action Input: the input to the action
+    Observation: the result of the action
+    ... (repeat Thought/Action/Action Input/Observation as needed)
+    Thought: I now have the answer
+    Final Answer: the complete answer with clear formatting
 
-Question: {input}
-Thought: {agent_scratchpad}
-""")
+    Question: {input}
+    Thought: {agent_scratchpad}
+    """)
     
-    # Create agent
     agent = create_react_agent(llm, tools, research_prompt)
-    
-    # Create executor
+
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
@@ -461,8 +450,7 @@ def main():
     print("Simple, robust research discovery!")
     print("Powered by LangChain + Qwen3 (via Ollama)")
     print()
-    
-    # Check Ollama
+
     try:
         response = requests.get("http://localhost:11434/api/version", timeout=5)
         if response.status_code == 200:
@@ -473,8 +461,7 @@ def main():
     except requests.RequestException:
         print("❌ Cannot connect to Ollama")
         return
-    
-    # Initialize agent
+
     print("🤖 Initializing Qwen3 research agent...")
     try:
         agent = create_research_agent()
@@ -512,8 +499,7 @@ def main():
             
             print(f"\n🧠 **Processing: '{user_input}'**")
             print("-" * 40)
-            
-            # Run agent
+
             result = agent.invoke({"input": user_input})
             
             print("\n" + "="*60)
@@ -535,5 +521,4 @@ if __name__ == "__main__":
     except ImportError:
         print("❌ Install: pip install langchain langchain-ollama")
         exit(1)
-    
     main()
