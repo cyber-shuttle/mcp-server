@@ -69,13 +69,13 @@ class CybershuttleLangChainTools:
         
         # Determine if looking for specific resource type
         resource_type = None
-        if "repository" in query_clean or "repo" in query_clean:
+        if "repository" in query_clean or "repositories" in query_clean:
             resource_type = "repository"
-        elif "dataset" in query_clean:
+        elif "dataset" in query_clean or "datasets" in query_clean:
             resource_type = "dataset"
-        elif "notebook" in query_clean:
+        elif "notebook" in query_clean or "notebooks" in query_clean:
             resource_type = "notebook"
-        elif "model" in query_clean:
+        elif "model" in query_clean or "models" in query_clean:
             resource_type = "model"
         else:
             resource_type= "repository,notebook,dataset,model"
@@ -167,7 +167,7 @@ class CybershuttleLangChainTools:
                 domain_tags.append('visual_cortex')
             if any(term in query_clean for term in ['nlp', 'language', 'text']):
                 domain_tags.append('natural-language-processing')
-            if any(term in query_clean for term in ['computer vision', 'image']):
+            if any(term in query_clean for term in ['computer vision', 'image', 'resnet']):
                 domain_tags.append('image-classification')
                 domain_tags.append('resnet')
             
